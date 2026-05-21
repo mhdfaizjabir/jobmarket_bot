@@ -5,9 +5,8 @@ Text-to-SQL layer: generates a SQLite query for a user question,
 runs it against an in-memory copy of the jobs DataFrame, and returns
 a formatted result string to include in the LLM context.
 
-Covers: counts, group-bys, filters, top-N, trend comparisons.
-Defers to analytics.py for: skill frequency (semicolon splitting) and
-salary statistics (regex parsing from text strings).
+The schema sent to the LLM is built dynamically from the actual DataFrame —
+countries, timelines, sectors, and row counts are never hardcoded.
 """
 
 import os
@@ -22,39 +21,93 @@ from config import CHAT_MODEL
 
 load_dotenv()
 
-_SCHEMA = """\
-Table: jobs  (total ~5,424 rows)
-  job_title       TEXT    e.g. "Data Analyst", "Civil Engineer", "Nurse"
-  company         TEXT    e.g. "Qatar Energy", "Qatar Foundation", "Nakilat"
-  category        TEXT    e.g. "Information Technology", "Oil and Gas", "Healthcare"
-  location        TEXT    e.g. "Doha", "Al Rayyan", "Lusail"
-  salary          TEXT    e.g. "2745-4118 USD/month" or NULL (most rows are NULL)
-  employment_type TEXT    e.g. "Full Time", "Part Time", "Contract"
-  career_level    TEXT    e.g. "Entry Level", "Mid Career", "Senior", "Management"
-  experience      TEXT    e.g. "1-2 Years", "3-5 Years", "5+ Years", "Fresh Graduate"
-  education       TEXT    e.g. "Bachelor", "Master", "MBA", "Diploma"
-  language        TEXT    e.g. "English", "Arabic" or NULL
-  skills          TEXT    semicolon-separated e.g. "Python;SQL;Power BI"
-  company_size    TEXT    employee count bracket
-  gender          TEXT    "Any", "Male", "Female" or NULL
-  _timeline       TEXT    "Nov 2025" (1,880 rows) or "Feb 2026" (3,544 rows)
+# Fixed part of the schema — column definitions that never change
+_SCHEMA_STATIC = """\
+Table: jobs
 
-Notes:
-- salary is TEXT, not numeric — cannot SUM or AVG it directly
-- skills is semicolon-separated TEXT — use skills LIKE '%Python%' for matching
-- For case-insensitive matching: LOWER(col) LIKE LOWER('%val%')
-- For timeline comparisons: GROUP BY _timeline or WHERE _timeline = 'Feb 2026'
-- Limit to 20 rows unless the question asks for more
+Key columns:
+  job_title           TEXT    job position title
+  company             TEXT    hiring company name
+  category            TEXT    raw sector / job category
+  _sector_norm        TEXT    NORMALISED sector — prefer over category
+  location            TEXT    city and country string
+  salary              TEXT    salary range string or NULL (most rows NULL)
+  employment_type     TEXT    raw employment type (capitalisation varies)
+  _employment_norm    TEXT    NORMALISED — ALWAYS use this for employment queries:
+                              "Full-Time", "Part-Time", "Contract",
+                              "Freelance", "Internship", "Temporary"
+  career_level        TEXT    raw career level (capitalisation varies)
+  _career_norm        TEXT    NORMALISED — ALWAYS use this for career level queries:
+                              "Entry-Level", "Mid-Level", "Senior",
+                              "Manager", "Director", "Executive"
+  experience          TEXT    years of experience string
+  education           TEXT    education level string
+  language            TEXT    language requirement or NULL
+  skills              TEXT    semicolon-separated skill list
+  company_size        TEXT    employee count bracket
+  gender              TEXT    "Any", "Male", "Female" or NULL
+  _timeline           TEXT    snapshot label — see AVAILABLE VALUES below
+  _country            TEXT    country name — see AVAILABLE VALUES below
+  _dump_id            TEXT    unique dataset identifier
+
+RULES (follow these exactly):
+- For employment type: use _employment_norm, NOT employment_type
+- For career level: use _career_norm, NOT career_level
+- salary is TEXT — cannot SUM/AVG directly
+- skills: use LIKE '%skill_name%' for matching
+- Case-insensitive: LOWER(col) LIKE LOWER('%value%')
+- Limit to 20 rows unless user asks for more
 - SQLite syntax only — no ILIKE, no ARRAY functions
 """
 
-_SYSTEM = f"""\
-You are a SQLite expert. Write a single SELECT query to answer questions about Qatar job market data.
 
-{_SCHEMA}
-Return ONLY the raw SQL query — no explanation, no markdown, no code fences.
-If the question asks for skill frequency rankings (which require splitting semicolons), return: SKIP
+def _build_system(df: pd.DataFrame) -> str:
+    """
+    Build the SQL system prompt dynamically from the actual DataFrame.
+    The LLM always sees the real timelines, countries, row counts,
+    and top sectors — never hardcoded examples.
+    """
+    total = len(df)
+
+    # Timelines with row counts
+    tl_counts = df["_timeline"].value_counts().to_dict() if "_timeline" in df.columns else {}
+    tl_lines  = "\n".join(
+        f"      {tl!r}  ({cnt:,} rows)"
+        for tl, cnt in sorted(tl_counts.items())
+    ) or "      (none)"
+
+    # Countries with row counts
+    co_counts = df["_country"].value_counts().to_dict() if "_country" in df.columns else {}
+    co_lines  = "\n".join(
+        f"      {co!r}  ({cnt:,} rows)"
+        for co, cnt in sorted(co_counts.items())
+    ) or "      (none)"
+
+    # Top 10 sectors
+    sec_col  = "_sector_norm" if "_sector_norm" in df.columns else "category"
+    top_secs = df[sec_col].value_counts().head(10).index.tolist() if sec_col in df.columns else []
+    sec_line = ", ".join(f'"{s}"' for s in top_secs) or "(none)"
+
+    available = f"""
+AVAILABLE VALUES in the database  (total rows: {total:,}):
+  _timeline values:
+{tl_lines}
+
+  _country values:
+{co_lines}
+
+  Top sectors (_sector_norm): {sec_line}
 """
+
+    return (
+        "You are a SQLite expert. Write a single SELECT query to answer "
+        "questions about GCC job market data.\n\n"
+        + _SCHEMA_STATIC
+        + available
+        + "\nReturn ONLY the raw SQL query — no explanation, no markdown, no code fences.\n"
+        "If the question asks for skill frequency rankings "
+        "(which require splitting semicolons), return: SKIP"
+    )
 
 
 class SQLEngine:
@@ -62,9 +115,11 @@ class SQLEngine:
         self.conn = sqlite3.connect(":memory:")
         df.to_sql("jobs", self.conn, index=False, if_exists="replace")
         self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Build schema once from the actual data — fully dynamic
+        self._system = _build_system(df)
 
     def get_context(self, question: str) -> str:
-        """Generate and run SQL for the question; return a formatted result string."""
+        """Generate and run SQL; return formatted result string for LLM context."""
         sql = self._to_sql(question)
         if not sql:
             return ""
@@ -78,8 +133,8 @@ class SQLEngine:
         resp = self._client.chat.completions.create(
             model=CHAT_MODEL,
             messages=[
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": question},
+                {"role": "system", "content": self._system},
+                {"role": "user",   "content": question},
             ],
             temperature=0,
             max_tokens=400,
@@ -87,7 +142,6 @@ class SQLEngine:
         raw = resp.choices[0].message.content.strip()
         if raw.upper() == "SKIP":
             return ""
-        # Strip any accidental markdown fences
         raw = re.sub(r"^```(?:sql)?\s*", "", raw, flags=re.IGNORECASE)
         raw = re.sub(r"\s*```\s*$", "", raw)
         raw = raw.strip()

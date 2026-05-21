@@ -2,8 +2,12 @@
 .env
 .streamlit/secrets.toml
 
-# ChromaDB index — large binary, rebuilds automatically on deploy
-chroma_db/
+# ChromaDB index — tracked via Git LFS (*.sqlite3 and *.bin are LFS-tracked)
+# chroma_db/ is NOT ignored — pre-built index committed to repo via LFS
+
+# Excel lock files (open-in-Excel temp files)
+~$*.xlsx
+~$*.xls
 
 # Python
 __pycache__/

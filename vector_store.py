@@ -3,22 +3,25 @@ vector_store.py
 ---------------
 ChromaDB wrapper for building and querying the semantic index.
 
-A manifest file (chroma_db/_manifest.json) tracks which source files
-have been indexed (by MD5 hash).  needs_indexing() returns True whenever
-a file is new, modified, or not yet indexed at all.
+PRODUCTION DESIGN:
+  - Build index OFFLINE with: python build_index.py
+  - App reads pre-built index instantly on startup — zero wait
+  - Incremental indexing: only new/changed files are re-embedded
+    (adding a new country takes minutes, not hours)
+  - Manifest tracks which files are indexed by MD5 hash
 
-Adding a new dataset file:  call build_index() once → manifest updates.
-Changing document text format: bump MANIFEST_VERSION to force a rebuild.
+MANIFEST_VERSION: bump this number ONLY when the document text
+format changes (e.g. new fields added). Forces a full rebuild.
 """
 
 import json
 import hashlib
 import warnings
+from pathlib import Path
 
 import chromadb
 import pandas as pd
 from chromadb.utils import embedding_functions
-from pathlib import Path
 from tqdm import tqdm
 
 from config import (
@@ -29,9 +32,9 @@ from config import (
     TOP_K,
 )
 
-MANIFEST_PATH = CHROMA_DIR / "_manifest.json"
-MANIFEST_VERSION = 1  # bump this to force a full rebuild
-_BATCH_SIZE = 128
+MANIFEST_PATH    = CHROMA_DIR / "_manifest.json"
+MANIFEST_VERSION = 2          # bumped: Country + Timeline now lead every document
+_BATCH_SIZE      = 512        # larger batches = fewer embedding calls = faster
 
 
 # ---------------------------------------------------------------------------
@@ -49,8 +52,10 @@ def _load_manifest() -> dict:
 
 def _save_manifest(file_hashes: dict[str, str]):
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-    data = {"version": MANIFEST_VERSION, "files": file_hashes}
-    MANIFEST_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    MANIFEST_PATH.write_text(
+        json.dumps({"version": MANIFEST_VERSION, "files": file_hashes}, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _file_hash(path: str) -> str:
@@ -61,7 +66,6 @@ def _file_hash(path: str) -> str:
 # Document helpers
 # ---------------------------------------------------------------------------
 
-# Fields included in the embedded text, in display order
 _DOC_FIELDS: list[tuple[str, str]] = [
     ("job_title",       "Job Title"),
     ("company",         "Company"),
@@ -78,42 +82,51 @@ _DOC_FIELDS: list[tuple[str, str]] = [
     ("gender",          "Gender"),
 ]
 
-# Metadata columns stored in ChromaDB (used for filtered queries)
 _META_COLS = [
     "job_title", "company", "category", "location",
     "career_level", "employment_type", "education",
-    "salary", "_timeline", "_source_file",
+    "salary", "_timeline", "_source_file", "_country",
 ]
 
 
 def _build_doc_text(row: pd.Series) -> str:
     parts = []
+
+    # Country and timeline FIRST — prevents the LLM from defaulting to wrong country
+    if "_country" in row.index and pd.notna(row["_country"]) and str(row["_country"]).strip():
+        parts.append(f"Country: {row['_country']}")
+    if "_timeline" in row.index and pd.notna(row["_timeline"]) and str(row["_timeline"]).strip():
+        parts.append(f"Timeline: {row['_timeline']}")
+
     for col, label in _DOC_FIELDS:
         if col in row.index:
             val = row[col]
             if pd.notna(val) and str(val).strip():
                 parts.append(f"{label}: {val}")
 
-    # Truncated description (if present)
+    # Truncated description
     for desc_col in ("description", "original_content"):
         if desc_col in row.index and pd.notna(row[desc_col]):
-            desc = str(row[desc_col])[:DESCRIPTION_TRUNCATE]
-            parts.append(f"Description: {desc}")
+            parts.append(f"Description: {str(row[desc_col])[:DESCRIPTION_TRUNCATE]}")
             break
-
-    if "_timeline" in row.index and pd.notna(row["_timeline"]):
-        parts.append(f"Timeline: {row['_timeline']}")
 
     return "\n".join(parts)
 
 
 def _build_metadata(row: pd.Series) -> dict:
-    """ChromaDB metadata must be str/int/float/bool — no None/NaN."""
+    """ChromaDB metadata: str/int/float/bool only — no None/NaN."""
     meta = {}
     for col in _META_COLS:
         if col in row.index and pd.notna(row[col]):
             meta[col] = str(row[col])
     return meta
+
+
+def _make_row_id(row: pd.Series, idx: int) -> str:
+    """Stable unique ID: source_file + job_id (or fallback to index)."""
+    src  = str(row.get("_source_file", "unknown"))
+    jid  = str(row.get("job_id", idx))
+    return f"{src}::{jid}"
 
 
 # ---------------------------------------------------------------------------
@@ -132,23 +145,29 @@ class VectorStore:
             embedding_function=self._ef,
         )
 
-    # ── public API ───────────────────────────────────────────────────────────
+    # ── Status helpers ───────────────────────────────────────────────────────
 
     def count(self) -> int:
         return self._collection.count()
 
     def needs_indexing(self, source_files: list[str]) -> bool:
-        """True when the index is missing, empty, or any source file has changed."""
+        """True when index is empty, version changed, or any file hash changed."""
         if self._collection.count() == 0:
             return True
         manifest = _load_manifest()
         if manifest.get("version") != MANIFEST_VERSION:
             return True
         stored = manifest.get("files", {})
-        for f in source_files:
-            if stored.get(f) != _file_hash(f):
-                return True
-        return False
+        return any(stored.get(f) != _file_hash(f) for f in source_files)
+
+    def new_files(self, source_files: list[str]) -> list[str]:
+        """Return list of files not yet indexed (or changed since last index)."""
+        if _load_manifest().get("version") != MANIFEST_VERSION:
+            return source_files   # version bump → full rebuild needed
+        stored = _load_manifest().get("files", {})
+        return [f for f in source_files if stored.get(f) != _file_hash(f)]
+
+    # ── Full rebuild (used when doc format changes) ──────────────────────────
 
     def build_index(
         self,
@@ -157,12 +176,10 @@ class VectorStore:
         progress_callback=None,
     ):
         """
-        (Re)build the entire ChromaDB collection from *df*.
-
-        progress_callback(done: int, total: int) is called after each batch
-        if provided (useful for Streamlit progress bars).
+        Full rebuild — deletes the collection and re-embeds everything.
+        Use this when MANIFEST_VERSION changes.
+        For adding new data files, use build_index_incremental() instead.
         """
-        # Wipe and recreate the collection
         try:
             self._client.delete_collection(CHROMA_COLLECTION)
         except Exception:
@@ -171,20 +188,67 @@ class VectorStore:
             name=CHROMA_COLLECTION,
             embedding_function=self._ef,
         )
+        self._upsert_rows(df, progress_callback)
+        _save_manifest({f: _file_hash(f) for f in source_files})
 
-        # Build parallel lists
+    # ── Incremental (production default) ─────────────────────────────────────
+
+    def build_index_incremental(
+        self,
+        df: pd.DataFrame,
+        source_files: list[str],
+        progress_callback=None,
+    ) -> str:
+        """
+        PRODUCTION METHOD: only embed files that are new or changed.
+
+        - If manifest version changed → falls back to full rebuild
+        - If one new country file added → only that file's rows are embedded
+        - Existing rows are untouched (fast)
+
+        Returns a status string for display.
+        """
+        manifest = _load_manifest()
+
+        # Version bump → must rebuild everything
+        if manifest.get("version") != MANIFEST_VERSION:
+            self.build_index(df, source_files, progress_callback)
+            return "Full rebuild complete (document format updated)."
+
+        stored = manifest.get("files", {})
+        changed = [f for f in source_files if stored.get(f) != _file_hash(f)]
+
+        if not changed:
+            return "Index already up to date — nothing to do."
+
+        # Only embed rows from new/changed files
+        changed_names = {Path(f).name for f in changed}
+        new_rows = df[df["_source_file"].isin(changed_names)] if "_source_file" in df.columns else df
+
+        print(f"Incremental index: embedding {len(new_rows):,} rows from {len(changed)} file(s)...")
+        self._upsert_rows(new_rows, progress_callback)
+
+        # Update manifest — keep existing hashes, add new ones
+        updated = {**stored, **{f: _file_hash(f) for f in changed}}
+        _save_manifest(updated)
+        return f"Incremental update: {len(new_rows):,} rows from {len(changed)} file(s) added."
+
+    # ── Internal ─────────────────────────────────────────────────────────────
+
+    def _upsert_rows(self, df: pd.DataFrame, progress_callback=None):
+        """Embed and upsert rows into the collection in batches."""
         docs, metas, ids = [], [], []
         for i, (_, row) in enumerate(df.iterrows()):
             docs.append(_build_doc_text(row))
             metas.append(_build_metadata(row))
-            ids.append(str(i))
+            ids.append(_make_row_id(row, i))
 
         total = len(docs)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            for start in tqdm(range(0, total, _BATCH_SIZE), desc="Indexing", leave=False):
+            for start in tqdm(range(0, total, _BATCH_SIZE), desc="Embedding", leave=False):
                 end = min(start + _BATCH_SIZE, total)
-                self._collection.add(
+                self._collection.upsert(
                     documents=docs[start:end],
                     metadatas=metas[start:end],
                     ids=ids[start:end],
@@ -192,7 +256,7 @@ class VectorStore:
                 if progress_callback:
                     progress_callback(end, total)
 
-        _save_manifest({f: _file_hash(f) for f in source_files})
+    # ── Search ───────────────────────────────────────────────────────────────
 
     def search(
         self,
@@ -200,21 +264,15 @@ class VectorStore:
         n_results: int = TOP_K,
         where: dict | None = None,
     ) -> list[dict]:
-        """
-        Semantic search.  Returns a list of dicts:
-          {document, metadata, distance}
-        """
         count = self._collection.count()
         if count == 0:
             return []
-
         kwargs: dict = {
             "query_texts": [query],
-            "n_results": min(n_results, count),
+            "n_results":   min(n_results, count),
         }
         if where:
             kwargs["where"] = where
-
         results = self._collection.query(**kwargs)
         return [
             {"document": doc, "metadata": meta, "distance": dist}

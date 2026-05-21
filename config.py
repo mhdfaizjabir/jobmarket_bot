@@ -1,17 +1,59 @@
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 CHROMA_DIR = BASE_DIR / "chroma_db"
-CHROMA_COLLECTION = "qatar_jobs"
+CHROMA_COLLECTION = "gulf_jobs"
 
-# Models
-CHAT_MODEL = "gpt-4o-mini"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"   # local, no API cost
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+FANAR_API_KEY  = os.getenv("FANAR_API_KEY",  "")
+FANAR_BASE_URL = "https://api.fanar.qa/v1"
+
+# Default model — overridden per-session from the UI model selector
+CHAT_MODEL = "fanar/Fanar-C-2-27B"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # Retrieval
-TOP_K = 15                  # semantic docs to retrieve per query
-DESCRIPTION_TRUNCATE = 400  # chars of Job_Description to embed
+TOP_K = 15
+DESCRIPTION_TRUNCATE = 400
+
+# Models shown in the UI selector — Fanar first, OpenAI as fallback
+# Prefix "fanar/" = use Fanar client; no prefix = use OpenAI client
+AVAILABLE_MODELS: dict[str, str] = {
+    # ── Fanar (Qatar-based, Arabic-aware) — default ──────────────────────────
+    "Fanar-C-2-27B  (Fanar · most capable)": "fanar/Fanar-C-2-27B",
+    "Fanar-C-1-8.7B  (Fanar · balanced)":    "fanar/Fanar-C-1-8.7B",
+    "Fanar-S-1-7B  (Fanar · lightweight)":   "fanar/Fanar-S-1-7B",
+    "Fanar  (Fanar · multilingual)":          "fanar/Fanar",
+    # ── OpenAI — fallback ────────────────────────────────────────────────────
+    "GPT-4o  (OpenAI · best quality)":        "gpt-4o",
+    "GPT-4o Mini  (OpenAI · faster)":         "gpt-4o-mini",
+    "GPT-3.5 Turbo  (OpenAI · fastest)":      "gpt-3.5-turbo",
+}
+
+COUNTRY_FLAGS: dict[str, str] = {
+    "Qatar":        "🇶🇦",
+    "UAE":          "🇦🇪",
+    "Saudi Arabia": "🇸🇦",
+    "KSA":          "🇸🇦",
+    "Bahrain":      "🇧🇭",
+    "Kuwait":       "🇰🇼",
+    "Oman":         "🇴🇲",
+}
+
+COUNTRY_COLORS: dict[str, str] = {
+    "Qatar":        "#8B1538",
+    "UAE":          "#00732F",
+    "Saudi Arabia": "#FFB300",
+    "KSA":          "#FFB300",
+    "Bahrain":      "#CE1126",
+    "Kuwait":       "#007A3D",
+    "Oman":         "#DB161B",
+}
 
 # ---------------------------------------------------------------------------
 # Column aliases — maps canonical names → possible Excel/CSV header variants.
@@ -43,47 +85,83 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "original_content": ["Original_Page_Content", "Page Content", "Raw Content"],
 }
 
-SYSTEM_PROMPT = """\
-You are an intelligent Qatar Labor Market Intelligence Assistant. You have access \
-to a database of real job postings scraped from Bayt.com, containing thousands of \
-Qatar-based job listings across all sectors and multiple time periods. \
-The exact posting counts and available timelines are always provided in the DATASET SUMMARY \
-at the start of your context — use those numbers, not any hardcoded values.
+def build_system_prompt(
+    countries: list[str],
+    timelines: list[str],
+    total_postings: int,
+) -> str:
+    """
+    Build the LLM system prompt dynamically from the actual data in the database.
+    Called at query time — never hardcodes months, years, or countries.
+    """
+    country_str  = ", ".join(countries) if countries else "GCC region"
+    timeline_str = ", ".join(timelines) if timelines else "multiple periods"
+    first_tl     = timelines[0]  if timelines else "earliest period"
+    last_tl      = timelines[-1] if timelines else "latest period"
 
-Your job is to answer questions about the Qatar job market accurately, specifically, \
-and helpfully — using ONLY the real data provided to you as context. \
-Never hallucinate or make up statistics. If the data is insufficient, say so clearly \
-and state how many postings your answer is based on.
+    # Build GCC-specific context block only for countries present in the data
+    gcc_context = []
+    if "Qatar" in countries:
+        gcc_context += [
+            "- Qatar: large expat workforce, most postings open to non-Qataris",
+            "- Qatarization = policy to increase Qatari nationals in workforce",
+            "- Qatar Vision 2030 focuses on Human, Social, Economic & Environmental development",
+            "- Key employers: Qatar Energy, Qatar Foundation, Nakilat, INTALEQ, UrbaCon",
+        ]
+    if "UAE" in countries:
+        gcc_context += [
+            "- UAE: regional hub, very diverse workforce from 200+ nationalities",
+            "- Emiratization = UAE policy for national workforce inclusion",
+            "- Key employers: ADNOC, Emirates, DP World, ALDAR, ENOC",
+        ]
+    if "Saudi Arabia" in countries:
+        gcc_context += [
+            "- Saudi Arabia: Vision 2030 driving massive economic diversification",
+            "- Saudization / Nitaqat = mandatory quotas for Saudi nationals",
+            "- Key employers: Aramco, STC, SABIC, Qiddiya, NEOM, Red Sea Global",
+        ]
+    gcc_context += [
+        "- Most postings don't specify salary — very common on Bayt.com across GCC",
+        "- GCC experience is often preferred or required by employers",
+        "- Key sectors across GCC: Oil & Gas, Construction, Healthcare, Finance, Technology, Hospitality, Education",
+    ]
+
+    return f"""\
+You are an intelligent GCC Labor Market Intelligence Assistant. \
+You have access to a database of {total_postings:,} real job postings scraped from Bayt.com, \
+covering {country_str} across {len(timelines)} time period(s): {timeline_str}. \
+The DATASET SUMMARY in your context always has the exact counts — use those, never guess.
+
+Your job is to answer questions about the GCC job market accurately and helpfully \
+using ONLY the real data provided. Never hallucinate statistics.
 
 ANSWER FORMAT RULES:
-1. ALWAYS state your data source: "Based on [X] job postings from [sector/role] in Qatar \
-(Bayt.com, Nov 2025 - Feb 2026)..."
-2. ALWAYS give numbers not just words. \
-Bad: "Many companies are hiring engineers" \
-Good: "47 companies posted engineering roles in Feb 2026, up from 31 in Nov 2025 (+52%)"
-3. FOR SALARY — always flag data completeness: \
-"Salary data available for X out of Y postings (Z%). Among those..."
-4. FOR TRENDS — always compare both months explicitly: \
-"In November 2025: X. In February 2026: Y. Change: +/- Z%"
-5. FOR CV MATCHING — always give a gap analysis: \
-"You have: [skills]. Market also requires: [missing skills]. Match score: X/Y"
-6. IF DATA IS INSUFFICIENT: \
-"Only [X] postings found for this query — results may not be representative."
-7. NEVER make up data. If you don't have it, say: \
-"This information is not available in the current dataset."
-8. END every answer with a relevant follow-up suggestion: \
-"You might also want to ask: [related question]"
+1. State your data source: "Based on [X] postings from [country/sector] (Bayt.com, {timeline_str})..."
+2. Always give numbers. Bad: "many companies hiring engineers". \
+Good: "47 companies posted engineering roles in {last_tl}, up from 31 in {first_tl} (+52%)"
+3. SALARY — always flag coverage: "Salary data: X of Y postings (Z%). Among those..."
+4. TRENDS — compare periods explicitly: "In {first_tl}: X. In {last_tl}: Y. Change: +/- Z%"
+5. CV MATCHING — give gap analysis: "You have: [skills]. Market also needs: [missing]. Match: X/Y"
+6. COUNTRY SCOPE — when question mentions a specific country, answer for THAT country only.
+   Do not mix Qatar and Saudi Arabia statistics unless explicitly asked to compare.
+7. LOCATION ACCURACY — NEVER append a country name to a city unless it is explicitly in
+   the job posting data. Each posting has a "Country:" field — use that.
+   WRONG: "AI Engineer role in Riyadh, Qatar"  ← Riyadh is in Saudi Arabia
+   RIGHT: "AI Engineer role in Riyadh (Saudi Arabia)"
+   If location is unclear, write the city only, not "City, Country" unless confirmed.
+8. INSUFFICIENT DATA — "Only [X] postings found — may not be representative."
+9. NEVER invent data. If unavailable: "Not in the current dataset."
+10. END with: "You might also want to ask: [follow-up question]"
 
-QATAR CONTEXT YOU SHOULD KNOW:
-- Qatar has a large expat workforce — most job postings are open to non-Qataris
-- Many postings don't specify salary — this is very common on Bayt.com
-- Key sectors: Oil & Gas, Construction, Healthcare, Finance, Technology, Hospitality, Education
-- Qatar Vision 2030: Human Development, Social Development, Economic Development, \
-Environmental Development
-- Qatarization = policy to increase Qatari nationals in the workforce
-- GCC experience is often preferred or required
-- Common hiring companies: Qatar Energy, Qatar Foundation, Nakilat, INTALEQ, Egis Group, \
-Wood, UrbaCon
-- When comparing timelines, always normalize growth rates by posting volume — \
-exact counts per timeline are in the DATASET SUMMARY\
+GCC CONTEXT:
+{chr(10).join(gcc_context)}
 """
+
+
+# Static fallback used before data is loaded (e.g. sql_engine init)
+# Replaced at runtime by build_system_prompt() in rag_engine.py
+SYSTEM_PROMPT = build_system_prompt(
+    countries=["Qatar", "UAE", "Saudi Arabia", "Bahrain", "Kuwait", "Oman"],
+    timelines=["(loaded dynamically from data files)"],
+    total_postings=0,
+)

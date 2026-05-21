@@ -136,17 +136,24 @@ class AnalyticsEngine:
             self.df["_timeline"].value_counts().to_dict()
             if "_timeline" in self.df.columns else {}
         )
+        per_country = (
+            self.df["_country"].value_counts().to_dict()
+            if "_country" in self.df.columns else {}
+        )
+        # Use normalised sector column if available
+        sec_col = "_sector_norm" if _has(self.df, "_sector_norm") else "category"
         top_sectors = (
-            self.df["category"].value_counts().head(10).to_dict()
-            if _has(self.df, "category") else {}
+            self.df[sec_col].value_counts().head(10).to_dict()
+            if _has(self.df, sec_col) else {}
         )
         sal_df = self._salary_frame()
         return {
-            "total_postings": total,
-            "per_timeline": per_tl,
-            "timelines": self.timelines,
-            "top_sectors": top_sectors,
-            "salary_n": len(sal_df),
+            "total_postings":  total,
+            "per_timeline":    per_tl,
+            "per_country":     per_country,
+            "timelines":       self.timelines,
+            "top_sectors":     top_sectors,
+            "salary_n":        len(sal_df),
             "salary_coverage": f"{len(sal_df)}/{total} ({_pct(len(sal_df), total)}%)",
         }
 
@@ -234,8 +241,15 @@ class AnalyticsEngine:
         filter_col: str | None = None,
         filter_val: str | None = None,
     ) -> str:
-        sal_df = self._salary_frame()
+        sal_df     = self._salary_frame()
         total_base = len(self.df)
+
+        # Show which job titles are in this subset (useful when filtered by role)
+        title_note = ""
+        if _has(self.df, "job_title") and total_base < 500:
+            titles = self.df["job_title"].dropna().value_counts().head(8).to_dict()
+            if titles:
+                title_note = f"\n  Job titles in this subset: {', '.join(f'{t} ({n})' for t, n in titles.items())}"
 
         if filter_col and filter_val:
             filtered_base = self.df
@@ -253,13 +267,13 @@ class AnalyticsEngine:
         if n == 0:
             return (
                 f"No salary data available for this filter "
-                f"(out of {total_base:,} matching postings). "
+                f"(out of {total_base:,} matching postings).{title_note} "
                 "This is common on Bayt.com where most listings omit salary."
             )
 
         lines = [
             f"SALARY ANALYSIS  (data available for {n}/{total_base:,} postings, "
-            f"{_pct(n, total_base)}%)\n",
+            f"{_pct(n, total_base)}%){title_note}\n",
             f"  Min:    ${sal_df['_sal_min'].min():>10,.0f} /month",
             f"  Max:    ${sal_df['_sal_max'].max():>10,.0f} /month",
             f"  Avg:    ${sal_df['_sal_mid'].mean():>10,.0f} /month (midpoint)",
@@ -291,33 +305,56 @@ class AnalyticsEngine:
         return "\n".join(lines)
 
     def career_level_stats(self) -> str:
-        if not _has(self.df, "career_level"):
+        # Prefer the normalised column (_career_norm) so numbers match the dashboard
+        col = "_career_norm" if _has(self.df, "_career_norm") else "career_level"
+        if not _has(self.df, col):
             return "Career level data not available in this dataset."
 
         lines = [f"CAREER LEVEL DISTRIBUTION  ({len(self.df):,} total postings)\n"]
         for tl in self.timelines:
             sub = self._sub(tl)
-            counts = sub["career_level"].value_counts()
-            total_with_data = int(sub["career_level"].notna().sum())
+            counts = sub[col].dropna().value_counts()
+            total_with_data = int(sub[col].notna().sum())
             lines.append(f"  {tl}  (data for {total_with_data:,} of {len(sub):,} postings):")
             for lvl, n in counts.items():
                 lines.append(f"    {lvl}: {n}  ({_pct(n, total_with_data)}%)")
             lines.append("")
+
+        # Cross-country if multiple countries present
+        if _has(self.df, "_country") and self.df["_country"].nunique() > 1:
+            lines.append("  BY COUNTRY:")
+            for country, cdf in self.df.groupby("_country"):
+                counts = cdf[col].dropna().value_counts()
+                n_with = int(cdf[col].notna().sum())
+                lines.append(f"    {country} ({len(cdf):,} postings):")
+                for lvl, n in counts.head(6).items():
+                    lines.append(f"      {lvl}: {n}  ({_pct(n, n_with)}%)")
         return "\n".join(lines)
 
     def employment_type_stats(self) -> str:
-        if not _has(self.df, "employment_type"):
+        # Prefer the normalised column — catches Full-Time / full time / fulltime etc.
+        col = "_employment_norm" if _has(self.df, "_employment_norm") else "employment_type"
+        if not _has(self.df, col):
             return "Employment type data not available in this dataset."
 
         lines = [f"EMPLOYMENT TYPE DISTRIBUTION  ({len(self.df):,} total postings)\n"]
         for tl in self.timelines:
             sub = self._sub(tl)
-            counts = sub["employment_type"].value_counts()
-            total_with_data = int(sub["employment_type"].notna().sum())
+            counts = sub[col].dropna().value_counts()
+            total_with_data = int(sub[col].notna().sum())
             lines.append(f"  {tl}  (data for {total_with_data:,} of {len(sub):,} postings):")
             for et, n in counts.items():
                 lines.append(f"    {et}: {n}  ({_pct(n, total_with_data)}%)")
             lines.append("")
+
+        # Cross-country if multiple countries present
+        if _has(self.df, "_country") and self.df["_country"].nunique() > 1:
+            lines.append("  BY COUNTRY:")
+            for country, cdf in self.df.groupby("_country"):
+                counts = cdf[col].dropna().value_counts().head(4)
+                lines.append(f"    {country}:")
+                for et, n in counts.items():
+                    lines.append(f"      {et}: {n}")
         return "\n".join(lines)
 
     def company_stats(self, n: int = 20) -> str:
