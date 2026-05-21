@@ -62,6 +62,11 @@ def _file_hash(path: str) -> str:
     return hashlib.md5(Path(path).read_bytes()).hexdigest()
 
 
+def _fname(path: str) -> str:
+    """Use filename only as manifest key — works on any OS / deploy path."""
+    return Path(path).name
+
+
 # ---------------------------------------------------------------------------
 # Document helpers
 # ---------------------------------------------------------------------------
@@ -158,14 +163,15 @@ class VectorStore:
         if manifest.get("version") != MANIFEST_VERSION:
             return True
         stored = manifest.get("files", {})
-        return any(stored.get(f) != _file_hash(f) for f in source_files)
+        # Use filename only as key — works across different machines/paths
+        return any(stored.get(_fname(f)) != _file_hash(f) for f in source_files)
 
     def new_files(self, source_files: list[str]) -> list[str]:
         """Return list of files not yet indexed (or changed since last index)."""
         if _load_manifest().get("version") != MANIFEST_VERSION:
-            return source_files   # version bump → full rebuild needed
+            return source_files
         stored = _load_manifest().get("files", {})
-        return [f for f in source_files if stored.get(f) != _file_hash(f)]
+        return [f for f in source_files if stored.get(_fname(f)) != _file_hash(f)]
 
     # ── Full rebuild (used when doc format changes) ──────────────────────────
 
@@ -189,7 +195,7 @@ class VectorStore:
             embedding_function=self._ef,
         )
         self._upsert_rows(df, progress_callback)
-        _save_manifest({f: _file_hash(f) for f in source_files})
+        _save_manifest({_fname(f): _file_hash(f) for f in source_files})
 
     # ── Incremental (production default) ─────────────────────────────────────
 
@@ -228,8 +234,8 @@ class VectorStore:
         print(f"Incremental index: embedding {len(new_rows):,} rows from {len(changed)} file(s)...")
         self._upsert_rows(new_rows, progress_callback)
 
-        # Update manifest — keep existing hashes, add new ones
-        updated = {**stored, **{f: _file_hash(f) for f in changed}}
+        # Update manifest — keep existing hashes, add new ones (filename keys only)
+        updated = {**stored, **{_fname(f): _file_hash(f) for f in changed}}
         _save_manifest(updated)
         return f"Incremental update: {len(new_rows):,} rows from {len(changed)} file(s) added."
 
