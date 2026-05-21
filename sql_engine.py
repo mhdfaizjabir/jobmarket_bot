@@ -17,7 +17,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from config import CHAT_MODEL
+from config import INTERNAL_MODEL, make_client
 
 load_dotenv()
 
@@ -114,7 +114,9 @@ class SQLEngine:
     def __init__(self, df: pd.DataFrame):
         self.conn = sqlite3.connect(":memory:")
         df.to_sql("jobs", self.conn, index=False, if_exists="replace")
-        self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Always use INTERNAL_MODEL (OpenAI GPT-4o-mini) for SQL generation
+        # regardless of what the user selected — structured output needs reliability
+        self._client, self._model = make_client(INTERNAL_MODEL)
         # Build schema once from the actual data — fully dynamic
         self._system = _build_system(df)
 
@@ -131,7 +133,7 @@ class SQLEngine:
 
     def _to_sql(self, question: str) -> str:
         resp = self._client.chat.completions.create(
-            model=CHAT_MODEL,
+            model=self._model,
             messages=[
                 {"role": "system", "content": self._system},
                 {"role": "user",   "content": question},

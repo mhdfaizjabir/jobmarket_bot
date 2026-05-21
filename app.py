@@ -607,8 +607,8 @@ EMPLOYMENT TYPES:
 
         with st.spinner("Generating AI summary…"):
             try:
-                from rag_engine import _make_client
-                client, bare_model = _make_client(selected_model)
+                from config import make_client
+                client, bare_model = make_client(selected_model)
                 stream = client.chat.completions.create(
                     model=bare_model,
                     messages=[{"role": "user", "content": narrative_prompt}],

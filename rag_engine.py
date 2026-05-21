@@ -30,7 +30,7 @@ from analytics import AnalyticsEngine
 from sql_engine import SQLEngine
 from vector_store import VectorStore
 from config import (
-    CHAT_MODEL, build_system_prompt, TOP_K,
+    CHAT_MODEL, INTERNAL_MODEL, build_system_prompt, make_client, TOP_K,
     OPENAI_API_KEY, FANAR_API_KEY, FANAR_BASE_URL,
 )
 
@@ -40,17 +40,7 @@ _MAX_SEMANTIC_DOCS = 12
 _MAX_HISTORY_TURNS = 6
 
 
-def _make_client(model: str) -> tuple[OpenAI, str]:
-    """
-    Return (OpenAI client, bare model name) for the given model string.
-    Fanar models are prefixed with 'fanar/' — strip the prefix and use
-    Fanar's base URL + API key.  Everything else goes to OpenAI.
-    """
-    if model.startswith("fanar/"):
-        bare = model[len("fanar/"):]
-        key  = FANAR_API_KEY or os.getenv("FANAR_API_KEY", "")
-        return OpenAI(api_key=key, base_url=FANAR_BASE_URL), bare
-    return OpenAI(api_key=OPENAI_API_KEY or os.getenv("OPENAI_API_KEY", "")), model
+# make_client is imported from config — routes fanar/ prefix to Fanar API
 
 # Fields where ChromaDB supports exact-match metadata filtering
 # _country added so "salary in Qatar" correctly scopes to Qatar only
@@ -191,8 +181,9 @@ class RAGEngine:
     def __init__(self, analytics: AnalyticsEngine, vector_store: VectorStore):
         self.analytics = analytics
         self.vs = vector_store
-        # Default client (OpenAI) — swapped per-call based on model choice
-        self._client = OpenAI(api_key=OPENAI_API_KEY or os.getenv("OPENAI_API_KEY", ""))
+        # Internal client for decomposition — always INTERNAL_MODEL (OpenAI gpt-4o-mini)
+        # This ensures structured JSON output works reliably regardless of user model choice
+        self._internal_client, self._internal_model = make_client(INTERNAL_MODEL)
         self.sql = SQLEngine(analytics.df)
 
     # ── Step 1: decompose ────────────────────────────────────────────────────
@@ -222,8 +213,8 @@ class RAGEngine:
         messages.append({"role": "user", "content": question})
 
         try:
-            resp = self._client.chat.completions.create(
-                model=CHAT_MODEL,
+            resp = self._internal_client.chat.completions.create(
+                model=self._internal_model,
                 messages=messages,
                 temperature=0,
                 max_tokens=400,
@@ -364,7 +355,7 @@ class RAGEngine:
             ),
         })
 
-        client, bare_model = _make_client(model or CHAT_MODEL)
+        client, bare_model = make_client(model or CHAT_MODEL)
         stream = client.chat.completions.create(
             model=bare_model,
             messages=messages,

@@ -4,6 +4,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Lazy import to avoid circular imports — call make_client() at runtime
+def make_client(model: str):
+    """
+    Return (OpenAI client, bare model name) for any model string.
+    Fanar models prefixed 'fanar/' → Fanar base URL + Fanar key.
+    Everything else → OpenAI.
+    Import this in any file that calls the LLM.
+    """
+    from openai import OpenAI   # local import — avoids circular deps
+    if model.startswith("fanar/"):
+        bare = model[len("fanar/"):]
+        key  = os.getenv("FANAR_API_KEY", "")
+        return OpenAI(api_key=key, base_url="https://api.fanar.qa/v1"), bare
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY", "")), model
+
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 CHROMA_DIR = BASE_DIR / "chroma_db"
@@ -15,6 +30,11 @@ FANAR_BASE_URL = "https://api.fanar.qa/v1"
 
 # Default model — overridden per-session from the UI model selector
 CHAT_MODEL = "fanar/Fanar-C-2-27B"
+
+# Internal model used for SQL generation and query decomposition.
+# Always OpenAI GPT-4o-mini — fast, cheap, reliable structured output.
+# Fanar is used for the FINAL answer generation only (user-facing).
+INTERNAL_MODEL = "gpt-4o-mini"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # Retrieval
