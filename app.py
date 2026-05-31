@@ -261,7 +261,7 @@ def _render_sidebar(df, timelines, source_files, vs) -> tuple[list[str], str]:
         # ── Model selector ─────────────────────────────────────────────────
         st.markdown("### 🤖 LLM Model")
         model_labels  = list(AVAILABLE_MODELS.keys())
-        model_choice  = st.radio("", model_labels, index=0, label_visibility="collapsed")
+        model_choice  = st.radio("Select model", model_labels, index=0, label_visibility="collapsed")
         selected_model = AVAILABLE_MODELS[model_choice]
 
         st.divider()

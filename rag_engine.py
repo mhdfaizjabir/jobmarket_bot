@@ -340,10 +340,20 @@ class RAGEngine:
             timelines       = self.analytics.timelines,
             total_postings  = len(df),
         )
+
+        # Fanar models have a 4,096 token context limit (~16,000 chars total).
+        # Truncate retrieved context to stay safely within the limit.
+        use_model = model or CHAT_MODEL
+        if use_model.startswith("fanar/"):
+            # Budget: ~3,000 chars for context (leaves room for system + history + question)
+            context = context[:6000]
+
         messages: list[dict] = [{"role": "system", "content": system}]
 
+        # For Fanar, limit history to last 1 turn only (saves tokens)
+        history_turns = 1 if use_model.startswith("fanar/") else _MAX_HISTORY_TURNS
         if chat_history:
-            messages.extend(chat_history[-(_MAX_HISTORY_TURNS * 2):])
+            messages.extend(chat_history[-(history_turns * 2):])
 
         messages.append({
             "role": "user",
@@ -355,7 +365,7 @@ class RAGEngine:
             ),
         })
 
-        client, bare_model = make_client(model or CHAT_MODEL)
+        client, bare_model = make_client(use_model)
         stream = client.chat.completions.create(
             model=bare_model,
             messages=messages,
