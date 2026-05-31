@@ -350,10 +350,8 @@ class RAGEngine:
 
         messages: list[dict] = [{"role": "system", "content": system}]
 
-        # For Fanar, limit history to last 1 turn only (saves tokens)
-        history_turns = 1 if use_model.startswith("fanar/") else _MAX_HISTORY_TURNS
         if chat_history:
-            messages.extend(chat_history[-(history_turns * 2):])
+            messages.extend(chat_history[-(_MAX_HISTORY_TURNS * 2):])
 
         messages.append({
             "role": "user",
