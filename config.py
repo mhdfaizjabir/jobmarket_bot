@@ -32,9 +32,7 @@ FANAR_BASE_URL = "https://api.fanar.qa/v1"
 CHAT_MODEL = "fanar/Fanar-C-2-27B"
 
 # Internal model used for SQL generation and query decomposition.
-# Always OpenAI GPT-4o-mini — fast, cheap, reliable structured output.
-# Fanar is used for the FINAL answer generation only (user-facing).
-INTERNAL_MODEL = "gpt-4o-mini"
+INTERNAL_MODEL = "fanar/Fanar-C-2-27B"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # Retrieval

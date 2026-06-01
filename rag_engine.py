@@ -14,7 +14,7 @@ HyST-inspired hybrid pipeline (Hybrid retrieval over Semi-Structured Tabular dat
        runs on the FILTERED subset, not all 5,424 rows
   4. ChromaDB search  — semantic similarity within structurally-filtered candidates
 
-  5. GPT-4o-mini synthesises a streaming answer from all three layers.
+  5. LLM synthesises a streaming answer from all three layers.
 """
 
 import json
@@ -181,8 +181,7 @@ class RAGEngine:
     def __init__(self, analytics: AnalyticsEngine, vector_store: VectorStore):
         self.analytics = analytics
         self.vs = vector_store
-        # Internal client for decomposition — always INTERNAL_MODEL (OpenAI gpt-4o-mini)
-        # This ensures structured JSON output works reliably regardless of user model choice
+        # Internal client for decomposition — always INTERNAL_MODEL regardless of user model choice
         self._internal_client, self._internal_model = make_client(INTERNAL_MODEL)
         self.sql = SQLEngine(analytics.df)
 
@@ -341,12 +340,12 @@ class RAGEngine:
             total_postings  = len(df),
         )
 
-        # Fanar models have a 4,096 token context limit (~16,000 chars total).
-        # Truncate retrieved context to stay safely within the limit.
+        # Fanar models have a 4,096 token context limit.
+        # Arabic is ~2 chars/token vs ~4 for English, so use 2,500 chars as a
+        # safe budget (leaves room for system prompt + history + question).
         use_model = model or CHAT_MODEL
         if use_model.startswith("fanar/"):
-            # Budget: ~3,000 chars for context (leaves room for system + history + question)
-            context = context[:6000]
+            context = context[:2500]
 
         messages: list[dict] = [{"role": "system", "content": system}]
 

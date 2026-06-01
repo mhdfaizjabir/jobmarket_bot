@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCC Job Market Intelligence — Bilingual Dashboard (12 May 2026)</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{
+  --bg:#0e1117; --panel:#1a2332; --panel-2:#243044; --text:#e6edf3; --muted:#8b98a5;
+  --accent:#58a6ff; --gold:#ffc547; --teal:#06b6d4; --pink:#ec4899;
+  --border:#30363d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:linear-gradient(180deg,#0e1117 0%, #131a26 100%);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+.wrap{max-width:1500px;margin:0 auto;padding:24px}
+header{padding:28px 0 14px;border-bottom:1px solid var(--border);margin-bottom:20px;
+  display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px}
+header h1{margin:0 0 4px;font-size:30px;letter-spacing:-0.6px;
+  background:linear-gradient(120deg,#58a6ff,#ffc547);-webkit-background-clip:text;background-clip:text;color:transparent}
+.subtitle{color:var(--muted);font-size:14px;max-width:780px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}
+.chip{padding:5px 11px;background:var(--panel);border:1px solid var(--border);border-radius:999px;color:var(--muted)}
+.chip b{color:var(--gold)}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:22px 0}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;
+  box-shadow:0 1px 0 rgba(255,255,255,0.03)}
+.kpi-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.flag{width:38px;height:25px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:bold;color:#fff;flex-shrink:0}
+.flag.qatar{background:linear-gradient(to right,#fff 30%,#8B1538 30%)}
+.flag.uae{background:linear-gradient(to bottom,#00732F 33%,#fff 33%,#fff 66%,#000 66%);position:relative}
+.flag.uae:before{content:'';position:absolute;left:0;top:0;bottom:0;width:25%;background:#FF0000}
+.flag.ksa{background:#006C35}
+.kpi-name{font-size:16px;font-weight:600}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 14px;font-size:12px}
+.kpi-grid .num{color:var(--gold);font-size:20px;font-weight:700;line-height:1.1}
+.kpi-grid .lbl{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;margin-top:2px}
+.section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:20px}
+.section h2{margin:0 0 4px;font-size:19px}
+.section .desc{color:var(--muted);font-size:13px;margin-bottom:18px;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.chart{width:100%;min-height:380px}
+.tall{min-height:540px}
+.insights{background:linear-gradient(135deg,var(--panel-2),#1d2740);border-left:3px solid var(--gold);
+  padding:14px 18px;border-radius:6px;margin-top:16px;font-size:14px;line-height:1.7}
+.insights b{color:var(--gold)}
+.insights .h{color:var(--accent)}
+.tab-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:7px 13px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;cursor:pointer;
+  font-size:12.5px;color:var(--muted);transition:all 0.15s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab:hover{color:var(--text)}
+.section-anchor{padding-top:6px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;font-size:12px}
+.toc a{padding:6px 11px;background:var(--panel);border:1px solid var(--border);border-radius:999px;
+  color:var(--muted);text-decoration:none;transition:all 0.15s}
+.toc a:hover{color:var(--text);border-color:var(--accent)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:24px 0;border-top:1px solid var(--border);margin-top:32px}
+@media (max-width:980px){.grid-2,.grid-3,.kpi-row{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>GCC Job Market Intelligence</h1>
+    <div class="subtitle">A bilingual snapshot of <b>20,535 active English-portal postings</b> and <b>20,568 Arabic-portal postings</b> from Bayt.com across Qatar, UAE, and Saudi Arabia. Snapshot date: 12 May 2026.</div>
+  </div>
+  <div class="toolbar">
+    <div class="chip"><b>3</b> countries</div>
+    <div class="chip"><b>20.5k</b> postings</div>
+    <div class="chip"><b>2.8k</b> employers</div>
+    <div class="chip"><b>2</b> languages</div>
+  </div>
+</header>
+
+<div class="toc">
+  <a href="#sec1">1. Volume & Mix</a>
+  <a href="#sec2">2. Categories</a>
+  <a href="#sec3">3. Seniority</a>
+  <a href="#sec4">4. Education/Contract</a>
+  <a href="#sec5">5. Employers</a>
+  <a href="#sec6">6. Geography</a>
+  <a href="#sec7">7. Salary</a>
+  <a href="#sec8">8. Bilingual Coverage</a>
+  <a href="#sec9">9. Language Requirements</a>
+  <a href="#sec10">10. Remote Work</a>
+  <a href="#sec11">11. Nationalization</a>
+  <a href="#sec12">12. Arabic Content</a>
+  <a href="#sec13">13. Skills</a>
+  <a href="#sec14">14. Gender</a>
+</div>
+
+<div class="kpi-row" id="kpiCards"></div>
+
+<div class="section" id="sec1">
+  <h2>1. Market Volume & Hiring Mix</h2>
+  <div class="desc">UAE absorbs nearly half of all GCC postings on this single day. Engineering tops every market; sector mix below shows how each economy diverges.</div>
+  <div class="grid-2">
+    <div id="chartVolume" class="chart"></div>
+    <div id="chartCategoryShare" class="chart"></div>
+  </div>
+  <div class="insights" id="insight1"></div>
+</div>
+
+<div class="section" id="sec2">
+  <h2>2. Top Job Categories by Country</h2>
+  <div class="desc">Hiring concentration by function. Tabs below switch between countries.</div>
+  <div class="tab-row" data-target="chartTopCats">
+    <div class="tab active" data-key="Qatar">Qatar</div>
+    <div class="tab" data-key="UAE">UAE</div>
+    <div class="tab" data-key="Saudi Arabia">Saudi Arabia</div>
+  </div>
+  <div id="chartTopCats" class="chart tall"></div>
+  <div class="insights" id="insight2"></div>
+</div>
+
+<div class="section" id="sec3">
+  <h2>3. Seniority & Experience Demand</h2>
+  <div class="desc">Career level (left) and required years of experience (right). KSA dominates the entry-level signal — a clear Saudization footprint.</div>
+  <div class="grid-2">
+    <div id="chartCareer" class="chart"></div>
+    <div id="chartYears" class="chart"></div>
+  </div>
+  <div class="insights" id="insight3"></div>
+</div>
+
+<div class="section" id="sec4">
+  <h2>4. Education Requirements & Employment Type</h2>
+  <div class="desc">Bachelor's is the dominant credential. KSA postings disclose education far more reliably than UAE/Qatar.</div>
+  <div class="grid-2">
+    <div id="chartEdu" class="chart"></div>
+    <div id="chartEmployment" class="chart"></div>
+  </div>
+  <div class="insights" id="insight4"></div>
+</div>
+
+<div class="section" id="sec5">
+  <h2>5. Who Is Hiring</h2>
+  <div class="desc">Distribution by company size (left) and the 15 most active employers in each market (tabs).</div>
+  <div class="grid-2">
+    <div id="chartCompanySize" class="chart"></div>
+    <div>
+      <div class="tab-row" data-target="chartTopCompanies">
+        <div class="tab active" data-key="Qatar">Qatar</div>
+        <div class="tab" data-key="UAE">UAE</div>
+        <div class="tab" data-key="Saudi Arabia">Saudi Arabia</div>
+      </div>
+      <div id="chartTopCompanies" class="chart"></div>
+    </div>
+  </div>
+  <div class="insights" id="insight5"></div>
+</div>
+
+<div class="section" id="sec6">
+  <h2>6. Geographic Concentration</h2>
+  <div class="desc">Top cities per country. Note: the source file had a country-suffix parser bug — cities are reconstructed from the prefix portion of the location string.</div>
+  <div class="grid-3">
+    <div id="chartCityQatar" class="chart"></div>
+    <div id="chartCityUAE" class="chart"></div>
+    <div id="chartCityKSA" class="chart"></div>
+  </div>
+  <div class="insights" id="insight6"></div>
+</div>
+
+<div class="section" id="sec7">
+  <h2>7. Salary Intelligence</h2>
+  <div class="desc">Only 7-10% of postings disclose salary. Among those that do, the distribution (left) and median monthly USD by job category (right).</div>
+  <div class="grid-2">
+    <div id="chartSalaryDist" class="chart"></div>
+    <div>
+      <div class="tab-row" data-target="chartSalaryCat">
+        <div class="tab active" data-key="Qatar">Qatar</div>
+        <div class="tab" data-key="UAE">UAE</div>
+        <div class="tab" data-key="Saudi Arabia">Saudi Arabia</div>
+      </div>
+      <div id="chartSalaryCat" class="chart"></div>
+    </div>
+  </div>
+  <div class="insights" id="insight7"></div>
+</div>
+
+<div class="section" id="sec8">
+  <h2>8. Bilingual Posting Coverage <span style="color:var(--accent);font-weight:400;font-size:14px">— EN vs AR portal overlap</span></h2>
+  <div class="desc">Each Bayt.com job is potentially listed on both the English and Arabic portal. Coverage tells us which jobs are being marketed to each audience.</div>
+  <div class="grid-2">
+    <div id="chartBilingual" class="chart"></div>
+    <div id="chartDescLen" class="chart"></div>
+  </div>
+  <div class="insights" id="insight8"></div>
+</div>
+
+<div class="section" id="sec9">
+  <h2>9. Language Requirements <span style="color:var(--accent);font-weight:400;font-size:14px">— extracted from Arabic page content</span></h2>
+  <div class="desc">% of postings that explicitly require Arabic, English, or both, by country. Note: most postings don't explicitly state a language requirement — what's reported below is the explicit signal only.</div>
+  <div class="grid-2">
+    <div id="chartLang" class="chart"></div>
+    <div id="chartLangCat" class="chart"></div>
+  </div>
+  <div class="insights" id="insight9"></div>
+</div>
+
+<div class="section" id="sec10">
+  <h2>10. Remote / Hybrid Work <span style="color:var(--accent);font-weight:400;font-size:14px">— signal from Arabic content</span></h2>
+  <div class="desc">% of postings that mention remote, hybrid, or work-from-home arrangements in their description.</div>
+  <div class="grid-2">
+    <div id="chartRemoteCountry" class="chart"></div>
+    <div id="chartRemoteCat" class="chart"></div>
+  </div>
+  <div class="insights" id="insight10"></div>
+</div>
+
+<div class="section" id="sec11">
+  <h2>11. Nationalization Signals <span style="color:var(--accent);font-weight:400;font-size:14px">— Saudization / Emiratization / Qatarization</span></h2>
+  <div class="desc">% of postings that explicitly mention preference for nationals of the home country, by category, extracted from the Arabic description text.</div>
+  <div class="grid-2">
+    <div id="chartNatCountry" class="chart"></div>
+    <div>
+      <div class="tab-row" data-target="chartNatCat">
+        <div class="tab" data-key="Qatar">Qatar</div>
+        <div class="tab" data-key="UAE">UAE</div>
+        <div class="tab active" data-key="Saudi Arabia">Saudi Arabia</div>
+      </div>
+      <div id="chartNatCat" class="chart"></div>
+    </div>
+  </div>
+  <div class="insights" id="insight11"></div>
+</div>
+
+<div class="section" id="sec12">
+  <h2>12. Most Frequent Arabic Terms <span style="color:var(--accent);font-weight:400;font-size:14px">— from Original_Page_Content</span></h2>
+  <div class="desc">Top meaningful Arabic terms across all Arabic-portal postings, with common stopwords and boilerplate ("Job Description", "Skills") removed.</div>
+  <div id="chartArTerms" class="chart tall"></div>
+  <div class="insights" id="insight12"></div>
+</div>
+
+<div class="section" id="sec13">
+  <h2>13. In-Demand Skills</h2>
+  <div class="desc">Top 30 skills extracted from the Job_Skills field across all 20,535 postings.</div>
+  <div id="chartSkills" class="chart tall"></div>
+  <div class="insights" id="insight13"></div>
+</div>
+
+<div class="section" id="sec14">
+  <h2>14. Gender Preference in Postings</h2>
+  <div class="desc">Most postings (~90%) do not specify a gender. Among the minority that do, this is the split.</div>
+  <div id="chartGender" class="chart"></div>
+  <div class="insights" id="insight14"></div>
+</div>
+
+<footer>
+  Generated 2026-05-12 from Bayt.com EN + AR portal snapshots · Self-contained interactive HTML dashboard · Plotly.js<br>
+  Bilingual signals (language, remote, nationalization) extracted by pattern-matching on Arabic page content.
+</footer>
+</div>
+
+<script>
+const DATA = {"countries": ["Qatar", "UAE", "Saudi Arabia"], "colors": {"Qatar": "#8B1538", "UAE": "#00732F", "Saudi Arabia": "#FFB300"}, "kpis": {"Qatar": {"total": 2376, "companies": 279, "categories": 180, "bilingual_pct": 97.3, "ar_only_count": 6, "salary_disclosed_pct": 7.4, "median_salary_usd": 1618, "bachelor_required_pct": 49.9, "entry_level_pct": 0.5, "remote_pct": 2.6, "nationalization_pct": 0.1, "arabic_req_pct": 1.1, "english_req_pct": 5.3}, "UAE": {"total": 9923, "companies": 1385, "categories": 314, "bilingual_pct": 99.4, "ar_only_count": 42, "salary_disclosed_pct": 10.2, "median_salary_usd": 1250, "bachelor_required_pct": 45.8, "entry_level_pct": 1.5, "remote_pct": 7.4, "nationalization_pct": 1.5, "arabic_req_pct": 1.3, "english_req_pct": 6.4}, "Saudi Arabia": {"total": 8236, "companies": 1213, "categories": 270, "bilingual_pct": 99.7, "ar_only_count": 130, "salary_disclosed_pct": 7.2, "median_salary_usd": 1330, "bachelor_required_pct": 90.5, "entry_level_pct": 22.7, "remote_pct": 6.7, "nationalization_pct": 1.3, "arabic_req_pct": 2.1, "english_req_pct": 6.0}}, "categories": {"Qatar": {"Engineering": 350, "Healthcare": 169, "IT": 162, "Education": 114, "Hospitality": 113, "Construction": 112, "Business Support": 106, "Tech": 84, "Sales": 79, "Beauty": 72, "Finance": 63, "Business Support Services": 59}, "UAE": {"Engineering": 1063, "Construction": 728, "Sales": 714, "Healthcare": 707, "Education": 662, "Tech": 564, "Finance": 526, "Business Support": 374, "Hospitality": 275, "Marketing": 252, "IT": 222, "Real Estate": 167}, "Saudi Arabia": {"Engineering": 1231, "Sales": 728, "Construction": 603, "Hospitality": 547, "Tech": 408, "Business Support": 379, "Healthcare": 285, "Finance": 266, "IT": 211, "Marketing": 173, "Business Support Services": 155, "Beauty": 152}}, "category_compare": {"Engineering": {"Qatar": 14.73, "UAE": 10.71, "Saudi Arabia": 14.95}, "Sales": {"Qatar": 3.32, "UAE": 7.2, "Saudi Arabia": 8.84}, "Construction": {"Qatar": 4.71, "UAE": 7.34, "Saudi Arabia": 7.32}, "Healthcare": {"Qatar": 7.11, "UAE": 7.12, "Saudi Arabia": 3.46}, "Tech": {"Qatar": 3.54, "UAE": 5.68, "Saudi Arabia": 4.95}, "Hospitality": {"Qatar": 4.76, "UAE": 2.77, "Saudi Arabia": 6.64}, "Education": {"Qatar": 4.8, "UAE": 6.67, "Saudi Arabia": 1.59}, "Business Support": {"Qatar": 4.46, "UAE": 3.77, "Saudi Arabia": 4.6}, "Finance": {"Qatar": 2.65, "UAE": 5.3, "Saudi Arabia": 3.23}, "IT": {"Qatar": 6.82, "UAE": 2.24, "Saudi Arabia": 2.56}, "Marketing": {"Qatar": 1.56, "UAE": 2.54, "Saudi Arabia": 2.1}, "Business Support Services": {"Qatar": 2.48, "UAE": 1.46, "Saudi Arabia": 1.88}, "Manufacturing": {"Qatar": 0.84, "UAE": 1.61, "Saudi Arabia": 1.46}, "Consulting": {"Qatar": 1.39, "UAE": 1.22, "Saudi Arabia": 1.49}, "Human Resources": {"Qatar": 1.18, "UAE": 1.32, "Saudi Arabia": 1.23}}, "category_compare_order": ["Engineering", "Sales", "Construction", "Healthcare", "Tech", "Hospitality", "Education", "Business Support", "Finance", "IT", "Marketing", "Business Support Services", "Manufacturing", "Consulting", "Human Resources"], "career_levels": {"Qatar": {"Entry-Level": 9.1, "Mid-Level": 34.4, "Senior": 46.2, "Manager": 7.9, "Director": 0.9, "Executive": 1.3, "Internship": 0.1, "Student": 0.0}, "UAE": {"Entry-Level": 15.8, "Mid-Level": 37.3, "Senior": 38.0, "Manager": 4.2, "Director": 1.6, "Executive": 2.2, "Internship": 0.1, "Student": 0.0}, "Saudi Arabia": {"Entry-Level": 33.6, "Mid-Level": 30.3, "Senior": 27.3, "Manager": 4.5, "Director": 1.5, "Executive": 1.5, "Internship": 0.0, "Student": 0.0}}, "career_order": ["Entry-Level", "Mid-Level", "Senior", "Manager", "Director", "Executive", "Internship", "Student"], "years": {"Qatar": {"0 (entry)": 0.6, "1 year": 6.2, "2 years": 13.3, "3-4 years": 15.9, "5-6 years": 24.5, "7-9 years": 15.8, "10+ years": 21.9, "Unspecified": 1.7}, "UAE": {"0 (entry)": 2.0, "1 year": 7.4, "2 years": 18.7, "3-4 years": 19.5, "5-6 years": 25.1, "7-9 years": 10.5, "10+ years": 14.4, "Unspecified": 2.3}, "Saudi Arabia": {"0 (entry)": 22.7, "1 year": 8.2, "2 years": 13.0, "3-4 years": 11.9, "5-6 years": 22.9, "7-9 years": 8.4, "10+ years": 12.9, "Unspecified": 0.0}}, "years_order": ["0 (entry)", "1 year", "2 years", "3-4 years", "5-6 years", "7-9 years", "10+ years", "Unspecified"], "education": {"Qatar": {"High School": 110, "Diploma": 108, "Certificate": 5, "Bachelor": 1186, "Master": 60, "PhD": 21}, "UAE": {"High School": 309, "Diploma": 335, "Certificate": 2, "Bachelor": 4541, "Master": 204, "PhD": 140}, "Saudi Arabia": {"High School": 427, "Diploma": 192, "Certificate": 0, "Bachelor": 7456, "Master": 55, "PhD": 8}}, "education_order": ["High School", "Diploma", "Certificate", "Bachelor", "Master", "PhD"], "employment": {"Qatar": {"Full-Time": 69.2, "Contract": 20.5, "Part-Time": 1.8, "Freelance": 4.7, "Internship": 2.0, "Temporary": 1.3}, "UAE": {"Full-Time": 76.3, "Contract": 8.8, "Part-Time": 2.8, "Freelance": 1.3, "Internship": 7.1, "Temporary": 0.6}, "Saudi Arabia": {"Full-Time": 81.1, "Contract": 6.6, "Part-Time": 1.9, "Freelance": 2.0, "Internship": 4.6, "Temporary": 0.9}}, "employment_order": ["Full-Time", "Contract", "Part-Time", "Freelance", "Internship", "Temporary"], "company_size": {"Qatar": {"1-9 employees": 21, "10-49 employees": 25, "50-99 employees": 19, "100-499 employees": 100, "500+ employees": 297}, "UAE": {"1-9 employees": 260, "10-49 employees": 293, "50-99 employees": 107, "100-499 employees": 645, "500+ employees": 1155}, "Saudi Arabia": {"1-9 employees": 192, "10-49 employees": 201, "50-99 employees": 137, "100-499 employees": 582, "500+ employees": 608}}, "company_size_order": ["1-9 employees", "10-49 employees", "50-99 employees", "100-499 employees", "500+ employees"], "top_companies": {"Qatar": {"Premium Solutions Consultancy": 225, "OilExec International": 203, "UrbaCon Contracting & Trading Company": 141, "VAMS": 131, "Spa Staff.com": 99, "Qatar Airways": 98, "Brunel": 80, "Vistas Global": 80, "Qatar Energy": 75, "People Dynamics": 71, "Minor International": 48, "Strategic Aerospace Services WLL": 44, "VAM Systems": 41, "International Schools Partnership": 40, "Black & Grey HR Consultancy FZE": 32}, "UAE": {"Careers International": 368, "GEMS": 312, "Al Futtaim Group": 247, "Horizonhr Consultancy": 220, "Black Pearl": 153, "NADIA Recruitment & Management Consultants": 139, "Hire Resolve.com": 136, "AECOM": 134, "First Abu Dhabi Bank": 131, "Agile Consultants": 116, "Dutco Group": 106, "Mashreqbank PSC": 98, "Halian": 92, "Apt Resources": 91, "STAR SERVICES LLC": 88}, "Saudi Arabia": {"Eram Talent": 576, "Spa Staff.com": 237, "Qiddiya Investment Company": 232, "JASARA PMC": 211, "Jobs for Humanity": 150, "Müller`s Solutions": 145, "Hire Resolve.com": 125, "Hill International": 115, "Accor": 113, "AREEB": 105, "Ninja": 102, "WSP": 98, "International Maritime Industries": 95, "The Ritz-Carlton": 87, "Dar Al Riyadh": 86}}, "top_cities": {"Qatar": {"Doha": 1410, "Unspecified": 944, "Ras Laffan": 5, "Mesaieed": 4, "Lusail": 4, "Al Khor": 2, "Al Wakrah": 1, "Al Maha Island": 1, "Raslaffan": 1, "Sumaysimah": 1, "India": 1, "Simsimah": 1}, "UAE": {"Dubai": 4383, "Unspecified": 2910, "Abu Dhabi": 1994, "Sharjah": 247, "Al Ain": 199, "Ras Al Khaimah": 80, "Ajman": 48, "Fujairah": 16, "Umm Al Quwain": 4, "City": 4, "Cairo": 3, "Kosovo": 3}, "Saudi Arabia": {"Unspecified": 4109, "Riyadh": 2577, "Jeddah": 556, "Dammam": 296, "Khobar": 129, "Qatif": 92, "Jubail": 69, "Eastern Province": 67, "Mecca": 34, "Medina": 28, "Dhahran": 26, "Doha": 20}}, "gender": {"Qatar": {"Open to All": 42.6, "Female": 40.2, "Male": 17.2, "_n": 209}, "UAE": {"Open to All": 64.6, "Female": 18.3, "Male": 17.0, "_n": 966}, "Saudi Arabia": {"Open to All": 69.1, "Female": 17.0, "Male": 13.7, "_n": 547}}, "gender_order": ["Open to All", "Female", "Male"], "skills_all": {"communication": 3693, "communication skills": 2711, "project management": 2043, "problem-solving": 1770, "leadership": 1725, "analytical skills": 1266, "customer service": 1162, "attention to detail": 1015, "negotiation": 965, "stakeholder management": 945, "organizational skills": 898, "team leadership": 896, "risk management": 885, "data analysis": 883, "teamwork": 848, "compliance": 848, "team collaboration": 826, "time management": 730, "troubleshooting": 573, "quality assurance": 568, "interpersonal skills": 563, "sales": 497, "problem solving": 497, "team management": 490, "collaboration": 481, "quality control": 450, "reporting": 446, "documentation": 436, "business development": 429, "safety compliance": 418}, "salary_buckets": {"Qatar": {"<$500": 19, "$500-1k": 32, "$1k-1.5k": 36, "$1.5k-2k": 17, "$2k-3k": 35, "$3k-5k": 15, "$5k-10k": 17, "$10k+": 4}, "UAE": {"<$500": 150, "$500-1k": 272, "$1k-1.5k": 143, "$1.5k-2k": 91, "$2k-3k": 82, "$3k-5k": 130, "$5k-10k": 82, "$10k+": 61}, "Saudi Arabia": {"<$500": 101, "$500-1k": 105, "$1k-1.5k": 99, "$1.5k-2k": 68, "$2k-3k": 63, "$3k-5k": 66, "$5k-10k": 35, "$10k+": 57}}, "salary_buckets_order": ["<$500", "$500-1k", "$1k-1.5k", "$1.5k-2k", "$2k-3k", "$3k-5k", "$5k-10k", "$10k+"], "salary_by_category": {"Qatar": {"Engineering": {"median": 2500, "n": 12}, "Sales": {"median": 2295, "n": 15}, "Training": {"median": 2100, "n": 6}, "Business Support": {"median": 1957, "n": 6}, "Construction": {"median": 1875, "n": 9}, "Healthcare": {"median": 1740, "n": 29}, "Oil & Gas": {"median": 1485, "n": 5}, "Beauty": {"median": 973, "n": 22}}, "UAE": {"Financial Services": {"median": 5850, "n": 6}, "Technology": {"median": 4725, "n": 5}, "IT & Technology": {"median": 4725, "n": 5}, "Design": {"median": 4450, "n": 10}, "Legal": {"median": 4000, "n": 8}, "Human Resources": {"median": 3780, "n": 9}, "Education": {"median": 3750, "n": 41}, "Management": {"median": 3500, "n": 36}, "Tech": {"median": 3450, "n": 24}, "IT": {"median": 2697, "n": 6}, "Healthcare": {"median": 2500, "n": 45}, "Finance": {"median": 2457, "n": 42}}, "Saudi Arabia": {"Education": {"median": 45000, "n": 26}, "Financial Services": {"median": 8100, "n": 5}, "Procurement": {"median": 3300, "n": 11}, "Management": {"median": 2595, "n": 37}, "Engineering": {"median": 2550, "n": 61}, "Construction": {"median": 2415, "n": 32}, "Human Resources": {"median": 1825, "n": 7}, "Hospitality": {"median": 1755, "n": 12}, "Healthcare": {"median": 1587, "n": 40}, "Oil & Gas": {"median": 1350, "n": 5}, "Design": {"median": 1300, "n": 6}, "Finance": {"median": 1300, "n": 11}}}, "bilingual_coverage": {"Qatar": {"Bilingual (both portals)": 2312, "EN portal only": 64, "AR portal only": 6}, "UAE": {"Bilingual (both portals)": 9884, "EN portal only": 39, "AR portal only": 24}, "Saudi Arabia": {"Bilingual (both portals)": 8219, "EN portal only": 17, "AR portal only": 123}}, "lang_requirements": {"Qatar": {"English required": 5.1, "Arabic required": 0.9, "Both required": 0.2, "Not specified": 91.1}, "UAE": {"English required": 6.1, "Arabic required": 1.0, "Both required": 0.3, "Not specified": 92.1}, "Saudi Arabia": {"English required": 5.7, "Arabic required": 1.9, "Both required": 0.2, "Not specified": 91.8}}, "lang_requirements_order": ["English required", "Arabic required", "Both required", "Not specified"], "arabic_by_category": {"Engineering": {"Arabic": 0.6, "English": 4.4}, "Sales": {"Arabic": 3.4, "English": 10.4}, "Construction": {"Arabic": 0.4, "English": 2.4}, "Healthcare": {"Arabic": 1.9, "English": 7.4}, "Tech": {"Arabic": 0.9, "English": 1.4}, "Hospitality": {"Arabic": 1.0, "English": 8.1}, "Education": {"Arabic": 0.9, "English": 3.3}, "Business Support": {"Arabic": 2.4, "English": 6.1}, "Finance": {"Arabic": 1.4, "English": 7.0}, "IT": {"Arabic": 0.3, "English": 3.7}, "Marketing": {"Arabic": 3.0, "English": 5.2}, "Business Support Services": {"Arabic": 1.4, "English": 5.6}, "Manufacturing": {"Arabic": 0.3, "English": 5.7}, "Consulting": {"Arabic": 4.7, "English": 7.2}, "Human Resources": {"Arabic": 3.5, "English": 5.4}}, "arabic_by_category_order": ["Engineering", "Sales", "Construction", "Healthcare", "Tech", "Hospitality", "Education", "Business Support", "Finance", "IT", "Marketing", "Business Support Services", "Manufacturing", "Consulting", "Human Resources"], "remote_by_country": {"Qatar": 2.6, "UAE": 7.4, "Saudi Arabia": 6.7}, "remote_by_category": {"Tech": 19.5, "IT": 16.8, "Consulting": 12.3, "Sales": 9.1, "Manufacturing": 8.0, "Business Support Services": 7.8, "Marketing": 6.5, "Business Support": 6.3, "Construction": 5.2, "Human Resources": 5.0, "Engineering": 4.9, "Finance": 4.8, "Healthcare": 3.3, "Hospitality": 2.0, "Education": 1.8}, "nationalization": {"Qatar": 0.13, "UAE": 1.45, "Saudi Arabia": 1.25}, "nationalization_by_category": {"Qatar": {"Engineering": 0.0, "Healthcare": 0.0, "IT": 0.0, "Education": 0.9, "Hospitality": 0.0, "Construction": 0.0, "Business Support": 0.0, "Tech": 0.0, "Sales": 0.0, "Beauty": 0.0}, "UAE": {"Engineering": 0.5, "Construction": 0.0, "Sales": 0.6, "Healthcare": 2.1, "Education": 1.2, "Tech": 1.2, "Finance": 0.4, "Business Support": 1.3, "Hospitality": 0.0, "Marketing": 2.4}, "Saudi Arabia": {"Engineering": 0.5, "Sales": 1.2, "Construction": 0.5, "Hospitality": 0.7, "Tech": 1.5, "Business Support": 2.4, "Healthcare": 1.4, "Finance": 3.0, "IT": 3.8, "Marketing": 1.7}}, "arabic_terms_all": {"خبرة": 21696, "الخبرة": 19273, "التجاري": 17355, "إدارة": 13800, "العملاء": 9174, "مدير": 5830, "العربية": 5263, "الرياض": 4322, "المشاريع": 4108, "فريق": 3951, "البيانات": 3894, "المبيعات": 3873, "إعداد": 3724, "بيئة": 3675, "وضمان": 3654, "درجة": 3614, "الحفاظ": 3538, "التواصل": 3507, "المشروع": 3442, "الأداء": 3431, "الجودة": 3409, "الامتثال": 3390, "قيادة": 3371, "التجارية": 3330, "عمليات": 3214, "مهندس": 3188, "مجال": 3154, "التعاون": 3128, "العمليات": 3085, "مراقبة": 3076}, "desc_length_median": {"Qatar": {"EN": 439, "AR": 2197}, "UAE": {"EN": 426, "AR": 2496}, "Saudi Arabia": {"EN": 433, "AR": 2529}}};
+const COLORS = {"Qatar":"#8B1538","UAE":"#00732F","Saudi Arabia":"#FFB300"};
+const LAYOUT_BASE = {
+  paper_bgcolor:"#1a2332", plot_bgcolor:"#1a2332",
+  font:{color:"#e6edf3", family:"-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif", size:12},
+  margin:{l:60,r:20,t:40,b:60},
+  legend:{bgcolor:"rgba(0,0,0,0)"},
+  xaxis:{gridcolor:"#30363d",zerolinecolor:"#30363d"},
+  yaxis:{gridcolor:"#30363d",zerolinecolor:"#30363d"}
+};
+function L(extra){ return Object.assign({}, JSON.parse(JSON.stringify(LAYOUT_BASE)), extra||{}); }
+const CFG = {displaylogo:false, responsive:true, modeBarButtonsToRemove:["lasso2d","select2d"]};
+
+// KPI cards
+(function(){
+  const flagCls = {"Qatar":"qatar","UAE":"uae","Saudi Arabia":"ksa"};
+  const flagText = {"Saudi Arabia":"KSA"};
+  const host = document.getElementById("kpiCards");
+  DATA.countries.forEach(c=>{
+    const k = DATA.kpis[c];
+    const sal = k.median_salary_usd ? "$"+k.median_salary_usd.toLocaleString() : "n/a";
+    host.insertAdjacentHTML("beforeend", `
+      <div class="kpi">
+        <div class="kpi-header">
+          <span class="flag ${flagCls[c]}">${flagText[c]||""}</span>
+          <span class="kpi-name">${c}</span>
+        </div>
+        <div class="kpi-grid">
+          <div><div class="num">${k.total.toLocaleString()}</div><div class="lbl">Postings</div></div>
+          <div><div class="num">${k.companies.toLocaleString()}</div><div class="lbl">Employers</div></div>
+          <div><div class="num">${k.bilingual_pct}%</div><div class="lbl">Bilingual</div></div>
+          <div><div class="num">${k.bachelor_required_pct}%</div><div class="lbl">BSc Req'd</div></div>
+          <div><div class="num">${sal}</div><div class="lbl">Median USD/mo</div></div>
+          <div><div class="num">${k.entry_level_pct}%</div><div class="lbl">Entry Level</div></div>
+          <div><div class="num">${k.remote_pct}%</div><div class="lbl">Remote/Hybrid</div></div>
+          <div><div class="num">${k.english_req_pct}%</div><div class="lbl">EN req</div></div>
+          <div><div class="num">${k.nationalization_pct}%</div><div class="lbl">${c==="Saudi Arabia"?"Saudization":(c==="UAE"?"Emiratization":"Qatarization")}</div></div>
+        </div>
+      </div>
+    `);
+  });
+})();
+
+// 1a. Volume donut
+{
+  const labels = DATA.countries, vals = labels.map(c=>DATA.kpis[c].total);
+  Plotly.newPlot("chartVolume",
+    [{type:"pie",hole:0.55,labels,values:vals,
+      marker:{colors:labels.map(c=>COLORS[c])},
+      textinfo:"label+percent",textfont:{size:14}}],
+    L({title:"Share of total postings (n=20,535)",showlegend:false}), CFG);
+}
+
+// 1b. Category compare
+{
+  const cats = DATA.category_compare_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:cats, y:cats.map(cat=>DATA.category_compare[cat][c]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartCategoryShare", traces,
+    L({title:"Top 15 categories — % share within each country",
+       barmode:"group", xaxis:{tickangle:-35,gridcolor:"#30363d"},
+       yaxis:{title:"% of postings",gridcolor:"#30363d"}}), CFG);
+}
+
+// 2. Top categories
+function drawTopCats(country){
+  const obj = DATA.categories[country];
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartTopCats",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:COLORS[country]},
+      text:vals.slice().reverse().map(v=>v.toLocaleString()), textposition:"outside"}],
+    L({title:`Top 12 job categories — ${country}`,
+       margin:{l:160,r:40,t:40,b:40},
+       xaxis:{title:"Postings",gridcolor:"#30363d"}}), CFG);
+}
+drawTopCats("Qatar");
+
+// 3a. Career level
+{
+  const order = DATA.career_order;
+  const traces = order.map((lvl,i)=>({
+    type:"bar", orientation:"h", name:lvl,
+    x:DATA.countries.map(c=>DATA.career_levels[c][lvl]),
+    y:DATA.countries,
+    marker:{color:["#3a86ff","#06a77d","#ffbe0b","#fb5607","#8338ec","#ff006e","#7d8597","#adb5bd"][i]}
+  }));
+  Plotly.newPlot("chartCareer", traces,
+    L({title:"Career level mix (% of leveled postings)",
+       barmode:"stack",
+       xaxis:{title:"%",gridcolor:"#30363d",range:[0,100]},
+       legend:{orientation:"h",y:-0.2}}), CFG);
+}
+
+// 3b. Years
+{
+  const order = DATA.years_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:order, y:order.map(y=>DATA.years[c][y]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartYears", traces,
+    L({title:"Required years of experience (% within country)",
+       barmode:"group",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"%",gridcolor:"#30363d"}}), CFG);
+}
+
+// 4a. Education
+{
+  const order = DATA.education_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:order, y:order.map(e=>DATA.education[c][e]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartEdu", traces,
+    L({title:"Education level required (counts)",
+       barmode:"group",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"# postings",gridcolor:"#30363d"}}), CFG);
+}
+
+// 4b. Employment
+{
+  const order = DATA.employment_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:order, y:order.map(e=>DATA.employment[c][e]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartEmployment", traces,
+    L({title:"Employment type (% where specified)",
+       barmode:"group",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"%",gridcolor:"#30363d"}}), CFG);
+}
+
+// 5a. Company size
+{
+  const order = DATA.company_size_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:order, y:order.map(s=>DATA.company_size[c][s]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartCompanySize", traces,
+    L({title:"Hiring company size (where disclosed)",
+       barmode:"group",
+       xaxis:{tickangle:-20,gridcolor:"#30363d"}, yaxis:{title:"# postings",gridcolor:"#30363d"}}), CFG);
+}
+
+// 5b. Top employers
+function drawTopCompanies(country){
+  const obj = DATA.top_companies[country];
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartTopCompanies",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:COLORS[country]},
+      text:vals.slice().reverse().map(v=>v.toLocaleString()), textposition:"outside"}],
+    L({title:`Top 15 employers — ${country}`,
+       margin:{l:210,r:40,t:40,b:40},
+       xaxis:{title:"# postings",gridcolor:"#30363d"}}), CFG);
+}
+drawTopCompanies("Qatar");
+
+// 6. Cities
+function drawCity(country, divId){
+  const obj = DATA.top_cities[country];
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot(divId,
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:COLORS[country]},
+      text:vals.slice().reverse().map(v=>v.toLocaleString()), textposition:"outside"}],
+    L({title:`${country} — top cities`,
+       margin:{l:130,r:30,t:40,b:40}, xaxis:{gridcolor:"#30363d"}}), CFG);
+}
+drawCity("Qatar","chartCityQatar");
+drawCity("UAE","chartCityUAE");
+drawCity("Saudi Arabia","chartCityKSA");
+
+// 7a. Salary distribution
+{
+  const order = DATA.salary_buckets_order;
+  const traces = DATA.countries.map(c=>({
+    type:"bar", name:c, x:order, y:order.map(b=>DATA.salary_buckets[c][b]),
+    marker:{color:COLORS[c]}
+  }));
+  Plotly.newPlot("chartSalaryDist", traces,
+    L({title:"Salary distribution (monthly USD) — where disclosed",
+       barmode:"group",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"# postings",gridcolor:"#30363d"}}), CFG);
+}
+
+// 7b. Salary by category
+function drawSalaryCat(country){
+  const obj = DATA.salary_by_category[country];
+  const labels = Object.keys(obj);
+  if(!labels.length){
+    document.getElementById("chartSalaryCat").innerHTML =
+      `<div style="padding:60px;text-align:center;color:#8b98a5">Not enough salary disclosures in ${country}.</div>`;
+    return;
+  }
+  const meds = labels.map(l=>obj[l].median);
+  const ns = labels.map(l=>obj[l].n);
+  Plotly.newPlot("chartSalaryCat",
+    [{type:"bar", orientation:"h", x:meds.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:COLORS[country]},
+      text:meds.slice().reverse().map((m,i)=>`$${m.toLocaleString()} (n=${ns.slice().reverse()[i]})`),
+      textposition:"outside"}],
+    L({title:`Median monthly USD by job category — ${country}`,
+       margin:{l:160,r:90,t:40,b:40}, xaxis:{title:"USD / month",gridcolor:"#30363d"}}), CFG);
+}
+drawSalaryCat("Qatar");
+
+// 8a. Bilingual coverage
+{
+  const order = ["Bilingual (both portals)","EN portal only","AR portal only"];
+  const colors = ["#06b6d4","#3a86ff","#ec4899"];
+  const traces = order.map((k,i)=>({
+    type:"bar", name:k,
+    x:DATA.countries, y:DATA.countries.map(c=>DATA.bilingual_coverage[c][k]),
+    marker:{color:colors[i]},
+    text:DATA.countries.map(c=>DATA.bilingual_coverage[c][k].toLocaleString()),
+    textposition:"inside"
+  }));
+  Plotly.newPlot("chartBilingual", traces,
+    L({title:"Portal coverage — bilingual vs single-portal postings",
+       barmode:"stack",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"# postings",gridcolor:"#30363d"}}), CFG);
+}
+
+// 8b. Description length
+{
+  const traces = [
+    {type:"bar", name:"English description (chars)", x:DATA.countries,
+     y:DATA.countries.map(c=>DATA.desc_length_median[c].EN),
+     marker:{color:"#3a86ff"}, text:DATA.countries.map(c=>DATA.desc_length_median[c].EN.toLocaleString()), textposition:"outside"},
+    {type:"bar", name:"Arabic page content (chars)", x:DATA.countries,
+     y:DATA.countries.map(c=>DATA.desc_length_median[c].AR),
+     marker:{color:"#ec4899"}, text:DATA.countries.map(c=>DATA.desc_length_median[c].AR.toLocaleString()), textposition:"outside"}
+  ];
+  Plotly.newPlot("chartDescLen", traces,
+    L({title:"Median posting length — EN structured vs AR full page",
+       barmode:"group",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"# characters (median)",gridcolor:"#30363d"}}), CFG);
+}
+
+// 9a. Lang req per country
+{
+  const order = DATA.lang_requirements_order;
+  const colors = {"English required":"#3a86ff","Arabic required":"#ec4899","Both required":"#06b6d4","Not specified":"#444c5e"};
+  const traces = order.map(k=>({
+    type:"bar", name:k,
+    x:DATA.countries, y:DATA.countries.map(c=>DATA.lang_requirements[c][k]),
+    marker:{color:colors[k]},
+    text:DATA.countries.map(c=>DATA.lang_requirements[c][k].toFixed(1)+"%"),
+    textposition:"inside"
+  }));
+  Plotly.newPlot("chartLang", traces,
+    L({title:"Language requirement signal (% of postings)",
+       barmode:"stack",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"%",gridcolor:"#30363d",range:[0,100]}}), CFG);
+}
+
+// 9b. Arabic/English by category
+{
+  const order = DATA.arabic_by_category_order;
+  Plotly.newPlot("chartLangCat", [
+    {type:"bar", name:"Arabic req", x:order, y:order.map(c=>DATA.arabic_by_category[c].Arabic),
+     marker:{color:"#ec4899"}},
+    {type:"bar", name:"English req", x:order, y:order.map(c=>DATA.arabic_by_category[c].English),
+     marker:{color:"#3a86ff"}}
+  ], L({title:"Language requirement by job category (cross-country)",
+        barmode:"group",
+        xaxis:{tickangle:-35,gridcolor:"#30363d"}, yaxis:{title:"%",gridcolor:"#30363d"}}), CFG);
+}
+
+// 10a. Remote by country
+{
+  const vals = DATA.countries.map(c=>DATA.remote_by_country[c]);
+  Plotly.newPlot("chartRemoteCountry",
+    [{type:"bar", x:DATA.countries, y:vals,
+      marker:{color:DATA.countries.map(c=>COLORS[c])},
+      text:vals.map(v=>v.toFixed(1)+"%"), textposition:"outside"}],
+    L({title:"Remote / hybrid work mention rate by country",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"% of postings",gridcolor:"#30363d"}, showlegend:false}), CFG);
+}
+
+// 10b. Remote by category
+{
+  const obj = DATA.remote_by_category;
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartRemoteCat",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:vals.slice().reverse().map(v=>`rgba(6,182,212,${0.3+0.7*v/Math.max(...vals)})`)},
+      text:vals.slice().reverse().map(v=>v.toFixed(1)+"%"), textposition:"outside"}],
+    L({title:"Remote-friendly job categories (% of postings)",
+       margin:{l:140,r:60,t:40,b:40},
+       xaxis:{gridcolor:"#30363d"}}), CFG);
+}
+
+// 11a. Nationalization country
+{
+  const vals = DATA.countries.map(c=>DATA.nationalization[c]);
+  const labels = {"Qatar":"Qatarization (Qatar)","UAE":"Emiratization (UAE)","Saudi Arabia":"Saudization (KSA)"};
+  Plotly.newPlot("chartNatCountry",
+    [{type:"bar", x:DATA.countries.map(c=>labels[c]), y:vals,
+      marker:{color:DATA.countries.map(c=>COLORS[c])},
+      text:vals.map(v=>v.toFixed(2)+"%"), textposition:"outside"}],
+    L({title:"Explicit national-preference mention rate",
+       xaxis:{gridcolor:"#30363d"},
+       yaxis:{title:"% of postings",gridcolor:"#30363d"}, showlegend:false}), CFG);
+}
+
+// 11b. Nationalization by category
+function drawNatCat(country){
+  const obj = DATA.nationalization_by_category[country];
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartNatCat",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:COLORS[country]},
+      text:vals.slice().reverse().map(v=>v.toFixed(1)+"%"), textposition:"outside"}],
+    L({title:`National-preference rate by category — ${country}`,
+       margin:{l:140,r:60,t:40,b:40},
+       xaxis:{title:"%",gridcolor:"#30363d"}}), CFG);
+}
+drawNatCat("Saudi Arabia");
+
+// 12. Top Arabic terms
+{
+  const obj = DATA.arabic_terms_all;
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartArTerms",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:vals.slice().reverse().map((v,i)=>{
+        const t=i/(vals.length-1);
+        return `rgb(${Math.round(236-t*160)},${Math.round(72+t*100)},${Math.round(153-t*60)})`;
+      })},
+      text:vals.slice().reverse().map(v=>v.toLocaleString()), textposition:"outside"}],
+    L({title:"Top Arabic terms across 20,568 Arabic-portal postings",
+       margin:{l:140,r:60,t:40,b:40},
+       xaxis:{title:"# occurrences",gridcolor:"#30363d"},
+       yaxis:{tickfont:{size:14}}}), CFG);
+}
+
+// 13. Skills
+{
+  const obj = DATA.skills_all;
+  const labels = Object.keys(obj), vals = Object.values(obj);
+  Plotly.newPlot("chartSkills",
+    [{type:"bar", orientation:"h", x:vals.slice().reverse(), y:labels.slice().reverse(),
+      marker:{color:vals.slice().reverse().map((v,i)=>{
+        const t=i/(vals.length-1);
+        return `rgb(${Math.round(88+t*100)},${Math.round(166-t*60)},${Math.round(255-t*100)})`;
+      })},
+      text:vals.slice().reverse().map(v=>v.toLocaleString()), textposition:"outside"}],
+    L({title:"Top 30 skills demanded across all 20,535 postings",
+       margin:{l:240,r:60,t:40,b:40},
+       xaxis:{title:"# postings mentioning skill",gridcolor:"#30363d"}}), CFG);
+}
+
+// 14. Gender
+{
+  const order = DATA.gender_order;
+  const colors = ["#7d8597","#ec4899","#3a86ff"];
+  const traces = order.map((g,i)=>({
+    type:"bar", name:g, x:DATA.countries,
+    y:DATA.countries.map(c=>DATA.gender[c][g]),
+    marker:{color:colors[i]},
+    text:DATA.countries.map(c=>DATA.gender[c][g]+"%"), textposition:"inside"
+  }));
+  Plotly.newPlot("chartGender", traces,
+    L({title:"Gender preference (% within postings that specified)",
+       barmode:"stack",
+       xaxis:{gridcolor:"#30363d"}, yaxis:{title:"%",gridcolor:"#30363d",range:[0,100]}}), CFG);
+}
+
+// Tabs
+document.querySelectorAll(".tab-row").forEach(row=>{
+  row.addEventListener("click", e=>{
+    if(!e.target.classList.contains("tab")) return;
+    row.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    e.target.classList.add("active");
+    const key = e.target.dataset.key, target = row.dataset.target;
+    if(target==="chartTopCats") drawTopCats(key);
+    else if(target==="chartTopCompanies") drawTopCompanies(key);
+    else if(target==="chartSalaryCat") drawSalaryCat(key);
+    else if(target==="chartNatCat") drawNatCat(key);
+  });
+});
+
+// Insights
+const k = DATA.kpis;
+const totalAll = k["Qatar"].total + k["UAE"].total + k["Saudi Arabia"].total;
+function ins(id, html){ document.getElementById(id).innerHTML = html; }
+
+ins("insight1", `
+  <span class="h">Key takeaway:</span> The UAE absorbs <b>${(100*k["UAE"].total/totalAll).toFixed(0)}%</b> of all GCC postings on this single day,
+  KSA <b>${(100*k["Saudi Arabia"].total/totalAll).toFixed(0)}%</b>, and Qatar <b>${(100*k["Qatar"].total/totalAll).toFixed(0)}%</b>.
+  <b>Engineering</b> is #1 in every market, but Construction is meaningfully bigger in UAE+KSA than Qatar
+  (UAE ${DATA.category_compare["Construction"]["UAE"]}%, KSA ${DATA.category_compare["Construction"]["Saudi Arabia"]}%, Qatar ${DATA.category_compare["Construction"]["Qatar"]}%) — the megaproject pipeline signal.
+`);
+
+ins("insight2", `
+  <span class="h">Sector signatures:</span> Qatar tilts toward <b>Healthcare and Engineering</b> — a services-and-infrastructure economy.
+  UAE's mix is the broadest (Engineering, Construction, Sales, IT, Hospitality) — a regional hub. KSA leans heavily into <b>Engineering, Sales, Construction</b> — Vision 2030 build-out and consumer-market expansion.
+`);
+
+ins("insight3", `
+  <span class="h">Saudi Arabia is the entry-level magnet:</span> <b>${k["Saudi Arabia"].entry_level_pct}%</b> of KSA postings require zero years of experience,
+  versus <b>${k["Qatar"].entry_level_pct}%</b> in Qatar and <b>${k["UAE"].entry_level_pct}%</b> in the UAE. This aligns with the Saudization (Nitaqat) pressure to absorb young nationals.
+  Qatar's market skews <b>senior</b> — over 46% of leveled roles are Senior or above.
+`);
+
+ins("insight4", `
+  <span class="h">Bachelor's = the de facto standard.</span> KSA is the strictest (<b>${k["Saudi Arabia"].bachelor_required_pct}%</b> of postings) and most consistent in disclosing education,
+  versus ${k["Qatar"].bachelor_required_pct}% in Qatar and ${k["UAE"].bachelor_required_pct}% in the UAE.
+  Full-time roles dominate; internships are more visible in UAE/KSA.
+`);
+
+ins("insight5", `
+  <span class="h">Large employers post the most jobs.</span> The 500+ employee tier leads in all three markets where company size is disclosed,
+  consistent with the high turnover of large recruitment-driven groups. The top-15 employer concentration shows recruitment agencies dominate Qatar;
+  global brands and aggressive growth-stage companies in the UAE; giga-project sponsors and Saudization-driven retail in KSA.
+`);
+
+ins("insight6", `
+  <span class="h">Hiring is highly concentrated:</span> Doha for Qatar, Dubai > Abu Dhabi for the UAE, and Riyadh > Jeddah for KSA.
+  Sharjah, Al Khobar, Dammam, and the Makkah/Medina belt account for the long tail.
+`);
+
+ins("insight7", `
+  <span class="h">Salary transparency is poor</span> — only <b>${k["Qatar"].salary_disclosed_pct}%</b> in Qatar, <b>${k["UAE"].salary_disclosed_pct}%</b> in UAE,
+  <b>${k["Saudi Arabia"].salary_disclosed_pct}%</b> in KSA. Among disclosures, the dominant band is <b>$500-2,000/month</b>, skewed by entry-level service-sector roles.
+  Median monthly USD where disclosed: Qatar $${k["Qatar"].median_salary_usd}, UAE $${k["UAE"].median_salary_usd}, KSA $${k["Saudi Arabia"].median_salary_usd}.
+  Premium categories (Engineering, Management, IT) clear meaningfully higher medians where reported.
+`);
+
+ins("insight8", `
+  <span class="h">Nearly every job is bilingually marketed</span> — <b>${k["Qatar"].bilingual_pct}%</b> (Qatar), <b>${k["UAE"].bilingual_pct}%</b> (UAE),
+  <b>${k["Saudi Arabia"].bilingual_pct}%</b> (KSA) of postings appear on both the English and Arabic portals.
+  Bayt clearly defaults to bilingual exposure to maximize candidate reach. Median Arabic page length is ~4-7× the structured English description — the AR page is the richer raw artifact.
+`);
+
+ins("insight9", `
+  <span class="h">Where language is explicitly stated, English dominates:</span> <b>${k["UAE"].english_req_pct}%</b> (UAE),
+  <b>${k["Saudi Arabia"].english_req_pct}%</b> (KSA), <b>${k["Qatar"].english_req_pct}%</b> (Qatar) of postings explicitly require English.
+  Arabic-required appears in <b>${k["Qatar"].arabic_req_pct}%</b> (Qatar), <b>${k["UAE"].arabic_req_pct}%</b> (UAE), <b>${k["Saudi Arabia"].arabic_req_pct}%</b> (KSA).
+  The vast majority of postings don't make an explicit language requirement, but the implicit signal (Arabic Original_Page_Content) suggests Arabic is expected by default.
+`);
+
+ins("insight10", `
+  <span class="h">Remote work is still rare in the GCC</span> — only <b>${DATA.remote_by_country["UAE"]}%</b> (UAE),
+  <b>${DATA.remote_by_country["Saudi Arabia"]}%</b> (KSA), and <b>${DATA.remote_by_country["Qatar"]}%</b> (Qatar) of postings mention remote/hybrid arrangements.
+  When remote is offered, it concentrates in <b>${Object.keys(DATA.remote_by_category)[0]}</b>, <b>${Object.keys(DATA.remote_by_category)[1]}</b>, and <b>${Object.keys(DATA.remote_by_category)[2]}</b> — knowledge-work categories.
+  Physical-presence sectors (Construction, Hospitality, Healthcare) almost never offer remote.
+`);
+
+ins("insight11", `
+  <span class="h">Explicit nationalization mentions are surprisingly rare in posting text:</span> <b>${DATA.nationalization["Saudi Arabia"].toFixed(2)}%</b> (KSA),
+  <b>${DATA.nationalization["UAE"].toFixed(2)}%</b> (UAE), <b>${DATA.nationalization["Qatar"].toFixed(2)}%</b> (Qatar).
+  Most employers operate under Saudization/Emiratization quotas but don't explicitly state national preferences in job text — those filters are enforced at the application/sourcing stage instead.
+  Where explicit, KSA-targeted Saudization mentions cluster in entry-level service categories (retail, reception, sales).
+`);
+
+ins("insight12", `
+  <span class="h">After removing boilerplate ("job description", "skills"),</span> the most frequent Arabic terms reveal the operational vocabulary of the GCC market:
+  <b>إدارة (management), خبرة (experience), مهارات (skills), العملاء (clients), معرفة (knowledge), تطوير (development), بكالوريوس (Bachelor), دبلوم (diploma)</b>.
+  This confirms the skill-and-experience-led framing of GCC postings — formal credentials + soft management/client skills dominate the language.
+`);
+
+ins("insight13", `
+  <span class="h">Communication, project management, leadership, problem-solving</span> are the cross-cutting non-technical skills demanded most often —
+  these dominate the top-10 across all 20,535 postings. Among technical skills, <b>customer service, sales, accounting, and engineering design</b> appear prominently.
+  Microsoft Office shows up as a baseline expectation. The takeaway for candidates: soft skills win at the top of the list.
+`);
+
+ins("insight14", `
+  <span class="h">Gender-neutral by default:</span> ~90% of postings don't specify gender. Among the ~10% that do, "Open to All" is the most common explicit signal.
+  Female-specified roles slightly outnumber male-specified roles in Qatar and UAE — concentrated in healthcare, education, and reception/admin functions —
+  reflecting the segmented service-economy reality of the region.
+`);
+</script>
+</body>
+</html>

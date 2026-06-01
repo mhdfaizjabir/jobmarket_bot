@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qatar Job Market Intelligence Dashboard — Nov 2025 vs Feb 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0b0d14;
+  --card: #141722;
+  --card2: #1a1e2e;
+  --border: #252a3a;
+  --text: #e4e6f0;
+  --muted: #7a7f96;
+  --accent: #6366f1;
+  --teal: #14b8a6;
+  --rose: #f43f5e;
+  --amber: #f59e0b;
+  --violet: #a855f7;
+  --sky: #38bdf8;
+  --emerald: #10b981;
+  --nov: #f59e0b;
+  --feb: #6366f1;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--sky);text-decoration:none}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,#0f1225 0%,#1a1040 40%,#0f1225 100%);border-bottom:1px solid var(--border);padding:2.5rem 2rem 2rem;text-align:center}
+.hdr h1{font-size:2.4rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#a855f7,#14b8a6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hdr p{color:var(--muted);margin-top:0.25rem}
+.hdr-pills{display:flex;justify-content:center;gap:0.75rem;margin-top:1rem;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:0.4rem;padding:0.35rem 0.9rem;border-radius:20px;font-size:0.82rem;font-weight:600;border:1px solid}
+.pill-nov{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#fbbf24}
+.pill-feb{background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,0.3);color:#818cf8}
+.pill-delta{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:#34d399}
+
+.wrap{max-width:1480px;margin:0 auto;padding:1.5rem}
+
+/* SECTION */
+.sec{font-size:1.35rem;font-weight:700;margin:2.5rem 0 1rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0.6rem}
+.sec .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;font-size:0.8rem;font-weight:700}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:1.5rem}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.3rem;position:relative;overflow:hidden;transition:transform .2s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi:nth-child(1)::before{background:linear-gradient(90deg,var(--nov),var(--amber))}
+.kpi:nth-child(2)::before{background:linear-gradient(90deg,var(--feb),var(--violet))}
+.kpi:nth-child(3)::before{background:linear-gradient(90deg,var(--emerald),var(--teal))}
+.kpi:nth-child(4)::before{background:linear-gradient(90deg,var(--rose),#fb923c)}
+.kpi:nth-child(5)::before{background:linear-gradient(90deg,var(--sky),var(--accent))}
+.kpi:nth-child(6)::before{background:linear-gradient(90deg,var(--violet),#c084fc)}
+.kpi:nth-child(7)::before{background:linear-gradient(90deg,var(--teal),var(--emerald))}
+.kpi-lbl{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.kpi-val{font-size:1.9rem;font-weight:800;margin:0.2rem 0}
+.kpi-sub{font-size:0.78rem;color:var(--muted)}
+.kpi-delta{display:inline-block;font-size:0.75rem;font-weight:700;padding:0.15rem 0.45rem;border-radius:6px;margin-left:0.4rem}
+.kpi-up{background:rgba(16,185,129,0.15);color:#34d399}
+.kpi-down{background:rgba(244,63,94,0.15);color:#fb7185}
+.kpi:nth-child(1) .kpi-val{color:#fbbf24}
+.kpi:nth-child(2) .kpi-val{color:#818cf8}
+.kpi:nth-child(3) .kpi-val{color:#34d399}
+.kpi:nth-child(4) .kpi-val{color:#fb7185}
+.kpi:nth-child(5) .kpi-val{color:#38bdf8}
+.kpi:nth-child(6) .kpi-val{color:#c084fc}
+.kpi:nth-child(7) .kpi-val{color:#14b8a6}
+
+/* CHARTS */
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:transform .15s}
+.card:hover{transform:translateY(-1px)}
+.card.full{grid-column:1/-1}
+.card h3{font-size:0.92rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:0.68rem;padding:0.12rem 0.5rem;border-radius:10px;font-weight:600}
+.badge-nov{background:rgba(245,158,11,0.12);color:#fbbf24}
+.badge-feb{background:rgba(99,102,241,0.12);color:#818cf8}
+.badge-info{background:rgba(56,189,248,0.12);color:#38bdf8}
+.badge-up{background:rgba(16,185,129,0.12);color:#34d399}
+.ch{position:relative;width:100%}
+.ch.h280{height:280px}.ch.h320{height:320px}.ch.h360{height:360px}.ch.h400{height:400px}.ch.h440{height:440px}.ch.h480{height:480px}
+
+/* LEGEND */
+.legend-row{display:flex;gap:1.5rem;margin-bottom:1rem;justify-content:center}
+.leg-item{display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--muted)}
+.leg-dot{width:12px;height:12px;border-radius:3px}
+
+/* INSIGHTS */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1.25rem;margin-bottom:1.5rem}
+.ins{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem}
+.ins h3{font-size:1rem;font-weight:700;margin-bottom:0.8rem;display:flex;align-items:center;gap:.5rem}
+.ins ul{list-style:none}
+.ins li{padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.86rem;color:var(--muted);line-height:1.55}
+.ins li:last-child{border-bottom:none}
+.ins li strong{color:var(--text);font-weight:600}
+.tag{display:inline-block;padding:0.12rem 0.4rem;border-radius:4px;font-size:0.72rem;font-weight:700;margin-right:0.2rem}
+.t-green{background:rgba(16,185,129,0.15);color:#34d399}
+.t-red{background:rgba(244,63,94,0.15);color:#fb7185}
+.t-blue{background:rgba(99,102,241,0.15);color:#818cf8}
+.t-amber{background:rgba(245,158,11,0.15);color:#fbbf24}
+.t-violet{background:rgba(168,85,247,0.15);color:#c084fc}
+.t-sky{background:rgba(56,189,248,0.15);color:#38bdf8}
+
+/* SKILLS CLOUD */
+.sk-cloud{display:flex;flex-wrap:wrap;gap:0.5rem;padding:0.5rem 0}
+.sk{display:inline-flex;align-items:center;padding:0.3rem 0.7rem;border-radius:18px;font-size:0.8rem;font-weight:500;border:1px solid var(--border);transition:all .2s;gap:0.35rem}
+.sk:hover{border-color:var(--accent);background:rgba(99,102,241,0.1)}
+.sk .ct{font-size:0.68rem;color:var(--muted);background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:8px}
+.sk .delta{font-size:0.65rem;font-weight:700;padding:0.08rem 0.3rem;border-radius:6px}
+
+/* METHODOLOGY */
+.method{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem 2rem;margin-bottom:1.5rem}
+.method h3{font-size:1rem;font-weight:700;margin-bottom:0.75rem}
+.method p{font-size:0.85rem;color:var(--muted);margin-bottom:0.5rem;line-height:1.6}
+.method ul{list-style:disc;padding-left:1.5rem}
+.method li{font-size:0.85rem;color:var(--muted);padding:0.2rem 0;line-height:1.5}
+.method li strong{color:var(--text)}
+
+/* FOOTER */
+.ftr{text-align:center;padding:2rem;color:var(--muted);font-size:0.78rem;border-top:1px solid var(--border);margin-top:2rem}
+
+/* SUPPLY DEMAND BAR */
+.sd-row{display:flex;align-items:center;gap:0.6rem;padding:0.35rem 0}
+.sd-lbl{width:130px;font-size:0.8rem;flex-shrink:0;text-align:right;color:var(--muted)}
+.sd-bars{flex:1;display:flex;gap:3px;align-items:center}
+.sd-b{height:10px;border-radius:5px;transition:width .8s}
+.sd-v{width:80px;font-size:0.78rem;color:var(--muted)}
+
+/* RESPONSIVE */
+@media(max-width:1024px){.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr)}.hdr h1{font-size:1.6rem}.ins-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>Qatar Job Market Intelligence</h1>
+  <p>Comparative Analysis of Bayt.com Job Postings &mdash; AI-Powered Labor Market Analytics</p>
+  <div class="hdr-pills">
+    <span class="pill pill-nov">Nov 2025: 1,880 Jobs</span>
+    <span class="pill pill-feb">Feb 2026: 3,544 Jobs</span>
+    <span class="pill pill-delta">+88.5% Growth (+1,664 new jobs)</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ============================================================ -->
+<!-- METHODOLOGY -->
+<!-- ============================================================ -->
+<div class="method">
+  <h3>Methodology & Data Pipeline</h3>
+  <p>This dashboard compares <strong>1,880 job listings</strong> scraped from Bayt.com on <strong>22 Nov 2025</strong> with <strong>3,544 listings</strong> scraped on <strong>22 Feb 2026</strong>, covering Qatar's labor market. The analysis pipeline includes:</p>
+  <ul>
+    <li><strong>Data Collection:</strong> Web scraping of Bayt.com Qatar job listings with structured extraction of 19 fields per job.</li>
+    <li><strong>Cleaning & Normalization:</strong> Category consolidation (e.g., "Oil and Gas" + "Oil & Gas"), education level standardization, experience range bucketing, salary parsing (monthly/yearly USD conversion), and bilingual text handling (Arabic/English).</li>
+    <li><strong>NLP Skill Extraction:</strong> Semicolon-delimited skill strings parsed, lowercased, and clustered into 20 semantic groups using keyword-matching taxonomy (Leadership, SAP/ERP, AI/ML, Cybersecurity, etc.).</li>
+    <li><strong>Comparative Analysis:</strong> Month-over-month delta computation across all dimensions. Job ID overlap analysis reveals Feb 2026 is a superset of Nov 2025 (all 1,880 Nov jobs persist) plus 1,664 net-new postings.</li>
+    <li><strong>Supply-Demand Modeling:</strong> Sector share shifts, salary-to-demand ratios, and skill gap indicators derived from cross-tabulation of job counts, salary data, and skill frequencies.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- KPI OVERVIEW -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">1</span> Key Performance Indicators</div>
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-lbl">Nov 2025 Jobs</div>
+    <div class="kpi-val">1,880</div>
+    <div class="kpi-sub">Baseline snapshot</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Feb 2026 Jobs</div>
+    <div class="kpi-val">3,544</div>
+    <div class="kpi-sub">+1,664 new listings</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Growth Rate</div>
+    <div class="kpi-val">+88.5%</div>
+    <div class="kpi-sub">In 3 months</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Avg Salary Change</div>
+    <div class="kpi-val">+4.4%</div>
+    <div class="kpi-sub">$5,390 &rarr; $5,627/mo</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Unique Companies</div>
+    <div class="kpi-val">630+</div>
+    <div class="kpi-sub">Hiring organizations (Feb)</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Skill Mentions</div>
+    <div class="kpi-val">25,210</div>
+    <div class="kpi-sub">vs 13,669 in Nov (+84%)</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Job Persistence</div>
+    <div class="kpi-val">100%</div>
+    <div class="kpi-sub">All Nov jobs still in Feb</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTOR GROWTH TRENDS -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">2</span> Sector Growth Trends</div>
+<div class="legend-row">
+  <span class="leg-item"><span class="leg-dot" style="background:var(--nov)"></span> Nov 2025</span>
+  <span class="leg-item"><span class="leg-dot" style="background:var(--feb)"></span> Feb 2026</span>
+</div>
+<div class="grid2">
+  <div class="card full">
+    <h3>Job Openings by Sector — Nov vs Feb <span class="badge badge-info">Normalized Categories</span></h3>
+    <div class="ch h480"><canvas id="sectorComp"></canvas></div>
+  </div>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Sector Growth Rate (%) <span class="badge badge-up">Nov &rarr; Feb</span></h3>
+    <div class="ch h440"><canvas id="sectorGrowth"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Sector Share of Total Jobs <span class="badge badge-info">Proportion Shift</span></h3>
+    <div class="ch h440"><canvas id="sectorShare"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SALARY ANALYSIS -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">3</span> Salary Fluctuations & Intelligence</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Average Monthly Salary by Sector <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h400"><canvas id="salSector"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Salary Distribution Brackets <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h400"><canvas id="salBracket"></canvas></div>
+  </div>
+</div>
+<div class="grid3">
+  <div class="card">
+    <h3>Salary Transparency</h3>
+    <div class="ch h280"><canvas id="salTransp"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Median Salary Trend</h3>
+    <div class="ch h280"><canvas id="salMedian"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Top-Paying vs Most-Hiring</h3>
+    <div class="ch h280"><canvas id="salScatter"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SKILLS NLP ANALYSIS -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">4</span> Emerging Skills — NLP Cluster Analysis</div>
+<div class="grid2">
+  <div class="card full">
+    <h3>Skill Cluster Comparison (NLP-Extracted) <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span> <span class="badge badge-info">20 Semantic Clusters</span></h3>
+    <div class="ch h480"><canvas id="skillCluster"></canvas></div>
+  </div>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Top 15 Granular Skills <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h440"><canvas id="skillRaw"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Fastest-Growing Skill Clusters <span class="badge badge-up">% Growth</span></h3>
+    <div class="ch h440"><canvas id="skillGrowth"></canvas></div>
+  </div>
+</div>
+
+<!-- SKILLS CLOUD -->
+<div class="card" style="margin-bottom:1.5rem">
+  <h3>Technical & Specialized Skills Landscape <span class="badge badge-info">Sized by Feb frequency, colored by growth</span></h3>
+  <div class="sk-cloud" id="skCloud"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EMPLOYMENT & WORKFORCE -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">5</span> Employment Structure & Workforce</div>
+<div class="grid3">
+  <div class="card">
+    <h3>Employment Type <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h320"><canvas id="empType"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Career Level <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h320"><canvas id="careerLvl"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Experience Required <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h320"><canvas id="expReq"></canvas></div>
+  </div>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Education Level <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h320"><canvas id="eduLvl"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Company Size <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h320"><canvas id="compSize"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOP EMPLOYERS -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">6</span> Top Employers</div>
+<div class="grid2">
+  <div class="card full">
+    <h3>Top 15 Hiring Companies <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h440"><canvas id="topComp"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- LANGUAGE & LOCATION -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">7</span> Language, Location & Demographics</div>
+<div class="grid3">
+  <div class="card">
+    <h3>Language Requirements</h3>
+    <div class="ch h320"><canvas id="langReq"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Location Distribution</h3>
+    <div class="ch h320"><canvas id="locDist"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Gender-Specified Roles</h3>
+    <div class="ch h320"><canvas id="genderChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOP JOB TITLES -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">8</span> Most Advertised Positions</div>
+<div class="grid2">
+  <div class="card full">
+    <h3>Top 15 Job Titles <span class="badge badge-nov">Nov</span> <span class="badge badge-feb">Feb</span></h3>
+    <div class="ch h400"><canvas id="topTitles"></canvas></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SUPPLY-DEMAND INSIGHTS -->
+<!-- ============================================================ -->
+<div class="sec"><span class="num">9</span> Supply-Demand Analysis & Actionable Insights</div>
+<div class="ins-grid">
+
+  <div class="ins">
+    <h3><span style="color:var(--emerald)">&#9650;</span> Sector Growth Trends</h3>
+    <ul>
+      <li><span class="tag t-green">+233%</span> <strong>Administrative Support</strong> is the fastest-growing category (6&rarr;20), signaling expanding back-office operations as Qatar scales its corporate infrastructure.</li>
+      <li><span class="tag t-green">+167%</span> <strong>Real Estate</strong> surged from 9 to 24 listings, likely driven by Lusail City development and post-World Cup property market maturation.</li>
+      <li><span class="tag t-green">+153%</span> <strong>Legal</strong> roles nearly tripled (15&rarr;38), reflecting growing regulatory complexity and international investment in Qatar.</li>
+      <li><span class="tag t-green">+139%</span> <strong>Digital & Emerging Tech</strong> skill cluster grew fastest among NLP-identified clusters, indicating Qatar's accelerating digital transformation agenda.</li>
+      <li><span class="tag t-green">+107%</span> <strong>Commercial Support</strong> more than doubled (111&rarr;230), suggesting growing outsourcing and business services demand.</li>
+      <li><span class="tag t-blue">Stable</span> <strong>Construction</strong> and <strong>Oil & Gas</strong> maintain dominance (~87-89% growth), consistent with mega-project timelines (NFE, Lusail).</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--amber)">&#9650;</span> Salary Fluctuations</h3>
+    <ul>
+      <li><span class="tag t-green">+4.4%</span> <strong>Overall average salary rose</strong> from $5,390 to $5,627/mo — modest but real upward pressure, driven by Healthcare and Engineering sectors.</li>
+      <li><span class="tag t-green">+94%</span> <strong>Engineering salaries nearly doubled</strong> ($1,833 &rarr; $3,569/mo) — strongest upward salary movement across any major sector.</li>
+      <li><span class="tag t-green">+22%</span> <strong>Sales sector salaries grew</strong> from $4,138 to $5,044/mo, reflecting competitive pressure for experienced sales talent.</li>
+      <li><span class="tag t-red">&minus;17%</span> <strong>Hospitality salaries declined</strong> ($1,427&rarr;$1,182/mo) despite job growth — oversupply of entry-level hospitality workers is depressing wages.</li>
+      <li><span class="tag t-red">&minus;17%</span> <strong>Construction salaries softened</strong> ($2,663&rarr;$2,213/mo) — high volume of lower-skilled roles diluting averages.</li>
+      <li><span class="tag t-amber">Issue</span> <strong>Salary transparency remains critically low</strong> — only 6.3% (Nov) to 6.5% (Feb) of listings disclose pay. This is a market-wide inefficiency.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--violet)">&#9650;</span> Emerging Skills & NLP Findings</h3>
+    <ul>
+      <li><span class="tag t-green">+139%</span> <strong>Digital & Emerging Tech</strong> (IoT, automation, RPA, blockchain) — the fastest-growing skill cluster. Qatar's smart city and Industry 4.0 initiatives are driving this.</li>
+      <li><span class="tag t-green">+98%</span> <strong>Healthcare & Medical</strong> skills cluster nearly doubled, outpacing overall job growth. Qatar Health Strategy 2030 is creating sustained demand.</li>
+      <li><span class="tag t-green">+98%</span> <strong>Organizational Skills</strong> surge suggests employers are prioritizing structured, process-oriented workers as projects scale.</li>
+      <li><span class="tag t-green">+94%</span> <strong>Quality & Compliance</strong> skills — regulatory maturation of Qatar's market means more compliance, ISO, and audit expertise needed.</li>
+      <li><span class="tag t-blue">Core</span> <strong>SAP/ERP remains the #1 technical differentiator</strong> — 833 mentions in Feb (84% growth). Enterprise system knowledge is required across Construction, Oil & Gas, and Services.</li>
+      <li><span class="tag t-violet">Watch</span> <strong>AI & Data Science</strong> cluster has 1,675 mentions but many are soft-adjacent (analytical skills). Pure AI/ML roles remain niche but growing.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--rose)">&#9660;</span> Supply-Demand Imbalances</h3>
+    <ul>
+      <li><span class="tag t-red">Gap</span> <strong>Healthcare: High pay, limited supply</strong> — Highest-paying sector ($14K/mo) but only 163 jobs. The supply of qualified medical professionals is constrained; Qatar relies heavily on expatriate healthcare workers.</li>
+      <li><span class="tag t-red">Gap</span> <strong>Tech: 240 jobs but global competition</strong> — Tech roles are only 6.8% of market. Qatar competes with Dubai and Riyadh for tech talent, and compensation trails global benchmarks.</li>
+      <li><span class="tag t-amber">Oversupply</span> <strong>Hospitality: Volume growth, wage decline</strong> — 429 jobs (+87%) but salaries dropped 17%. Suggests excess labor supply driving down wages for entry-level roles.</li>
+      <li><span class="tag t-amber">Mismatch</span> <strong>Education vs. job requirements</strong> — 58% of jobs require a Bachelor's, but Construction (the biggest sector) and Hospitality (2nd biggest) predominantly need Diploma/High School. Degree inflation is real.</li>
+      <li><span class="tag t-blue">Structural</span> <strong>Mid-level bottleneck</strong> — 213 mid-level roles vs. only 74 management roles. Career advancement funnel is narrow, risking talent flight.</li>
+      <li><span class="tag t-violet">Contract</span> <strong>Contract work growing faster</strong> — Contracts grew 95% (98&rarr;191) vs. Full-Time at 87% (503&rarr;940). Project-based economy expanding.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--sky)">&#9733;</span> Recommendations for Students</h3>
+    <ul>
+      <li><span class="tag t-green">Priority</span> <strong>Learn SAP/ERP systems</strong> — 833 job mentions; the single most requested technical skill. Certification courses have immediate ROI across Construction, O&G, and Services.</li>
+      <li><span class="tag t-green">Priority</span> <strong>Target 3-5 year experience band</strong> — 976 jobs require this range (the largest segment). Focus on gaining targeted, relevant experience early.</li>
+      <li><span class="tag t-blue">Path</span> <strong>Engineering degree = maximum versatility</strong> — Opens doors to Construction (443), Engineering (274), O&G (217), Energy (52), and Consulting (26) sectors.</li>
+      <li><span class="tag t-amber">Skill</span> <strong>Invest in project management certification</strong> — 132 jobs mention it explicitly, cutting across all sectors. PMP/PRINCE2 are high-value differentiators.</li>
+      <li><span class="tag t-violet">Language</span> <strong>Arabic-English bilingualism commands a premium</strong> — 90 jobs explicitly require bilingual proficiency (up 73% from Nov). Bilingual candidates access 15-20% more positions.</li>
+      <li><span class="tag t-sky">Entry</span> <strong>Hospitality and Construction for fastest entry</strong> — 872 combined jobs, many accepting Diploma/High School. Build GCC experience, then upskill into higher-paid sectors.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--amber)">&#9733;</span> Recommendations for Policymakers</h3>
+    <ul>
+      <li><span class="tag t-red">Urgent</span> <strong>Mandate salary disclosure</strong> — Only 6.5% of jobs report salary. This information asymmetry harms workers and reduces market efficiency. UAE and Saudi are moving toward pay transparency regulations.</li>
+      <li><span class="tag t-green">Strategy</span> <strong>Invest in TVET programs</strong> — Construction (443 jobs) and Hospitality (429) are the top two sectors but largely require Diploma-level education. Technical/vocational training can rapidly fill gaps.</li>
+      <li><span class="tag t-blue">Qatarization</span> <strong>Target mid-level roles for national workforce</strong> — 213 mid-level positions are the largest career band. Structured upskilling programs for Qatari nationals here would have maximum impact.</li>
+      <li><span class="tag t-violet">Diversify</span> <strong>Accelerate tech sector incentives</strong> — Tech jobs are only 6.8% of market despite global digital transformation. Tax incentives, startup visas, and tech parks can diversify economy beyond hydrocarbons.</li>
+      <li><span class="tag t-amber">Healthcare</span> <strong>Expand medical education pipelines</strong> — At $14K/mo avg salary (highest sector), investing in domestic medical training reduces expatriate dependency and retains economic value.</li>
+      <li><span class="tag t-sky">Data</span> <strong>Establish a national labor market observatory</strong> — Regular, structured job market data collection would enable evidence-based policy. This analysis demonstrates what's possible with systematic data.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--teal)">&#9733;</span> Recommendations for Employers</h3>
+    <ul>
+      <li><span class="tag t-green">Advantage</span> <strong>Post salaries to stand out</strong> — With 93.5% of competitors hiding pay, transparent listings attract significantly more qualified applicants. Early movers gain a talent acquisition edge.</li>
+      <li><span class="tag t-amber">Retention</span> <strong>Create clearer career ladders</strong> — Only 74 management roles exist for 213 mid-level workers. The 3:1 ratio means advancement paths are limited, driving turnover.</li>
+      <li><span class="tag t-blue">Skills</span> <strong>Build internal SAP/ERP training</strong> — The most in-demand technical skill (833 mentions) is easier to upskill internally than to hire externally at market rates.</li>
+      <li><span class="tag t-red">Wages</span> <strong>Hospitality: raise entry wages to reduce churn</strong> — Declining salaries (-17%) amid growing demand will increase turnover costs. Modest wage increases improve retention ROI.</li>
+      <li><span class="tag t-violet">Contracts</span> <strong>Embrace flexible employment</strong> — Contract roles grew 95%. Offering project-based and hybrid arrangements taps a wider talent pool and reduces long-term overhead.</li>
+      <li><span class="tag t-sky">Competition</span> <strong>Qatar Energy sets market expectations</strong> — With 330 listings (9.3% of market), their comp/benefits become the benchmark. Smaller employers must differentiate on culture, growth, or flexibility.</li>
+    </ul>
+  </div>
+
+  <div class="ins">
+    <h3><span style="color:var(--violet)">&#9733;</span> Emerging Trends to Watch</h3>
+    <ul>
+      <li><span class="tag t-green">Rising</span> <strong>Energy transition roles</strong> — "Energy" as a standalone category grew 68% (31&rarr;52). Qatar's LNG expansion coexists with growing sustainability/renewables hiring.</li>
+      <li><span class="tag t-green">Rising</span> <strong>Digital infrastructure buildout</strong> — "Senior Digital Roll-Out Engineer" tripled (2&rarr;6). Large-scale digitalization projects are underway across utilities and government.</li>
+      <li><span class="tag t-green">Rising</span> <strong>Legal & compliance maturation</strong> — Legal roles grew 153%, the highest rate of any professional sector. Qatar's maturing regulatory environment demands more legal expertise.</li>
+      <li><span class="tag t-green">Rising</span> <strong>Aerospace cluster forming</strong> — 48 aerospace jobs (Strategic Aerospace Services) in Feb. Qatar's defense and aviation maintenance sector is crystallizing.</li>
+      <li><span class="tag t-amber">Watch</span> <strong>Contract economy expanding</strong> — Contract roles growing faster than permanent (+95% vs +87%). This structural shift has implications for labor law, benefits, and worker protection.</li>
+      <li><span class="tag t-violet">Watch</span> <strong>AI/ML still nascent but accelerating</strong> — While "AI & Data Science" skill cluster shows 84% growth, most mentions are analytical skills rather than pure AI roles. The transition is underway but early-stage.</li>
+    </ul>
+  </div>
+
+</div>
+
+</div><!-- /wrap -->
+
+<div class="ftr">
+  Qatar Job Market Intelligence Dashboard &mdash; Comparative Analysis of Bayt.com Listings: Nov 22, 2025 vs Feb 22, 2026<br>
+  Data: 1,880 + 3,544 job listings | NLP Skill Extraction: 20 Semantic Clusters | 19 Structured Fields Analyzed
+</div>
+
+<!-- ============================================================ -->
+<!-- CHARTS JS -->
+<!-- ============================================================ -->
+<script>
+Chart.defaults.color='#7a7f96';
+Chart.defaults.borderColor='rgba(255,255,255,0.05)';
+Chart.defaults.font.family="'Segoe UI',system-ui,sans-serif";
+
+const NOV='rgba(245,158,11,0.85)',NOV_BG='rgba(245,158,11,0.15)';
+const FEB='rgba(99,102,241,0.85)',FEB_BG='rgba(99,102,241,0.15)';
+const PAL=['#6366f1','#14b8a6','#f43f5e','#f59e0b','#a855f7','#38bdf8','#10b981','#fb923c','#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#fbbf24','#30cfd0','#a18cd1','#fbc2eb','#8fd3f4','#e0c3fc','#d4fc79','#ff6b6b','#4ecdc4','#ffd93d','#c084fc','#22d3ee'];
+
+const noGrid={grid:{display:false}};
+const compOpts=(h)=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:noGrid,y:noGrid}});
+
+// ===== SECTOR COMPARISON =====
+new Chart(document.getElementById('sectorComp'),{
+  type:'bar',
+  data:{
+    labels:['Construction','Hospitality','Engineering','Tech','Commercial Svc','Oil & Gas','Healthcare','Services','Education','Energy','Aerospace','Finance','Automotive','Legal','Facilities','HR','Procurement','Logistics','Consulting','Real Estate'],
+    datasets:[
+      {label:'Nov 2025',data:[237,229,137,130,111,115,84,77,63,31,26,28,24,15,17,19,15,13,11,9],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb 2026',data:[443,429,274,240,230,217,163,132,123,52,48,42,40,38,36,33,29,28,26,24],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:15,font:{size:11}}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{font:{size:11}}}}}
+});
+
+// ===== SECTOR GROWTH RATE =====
+new Chart(document.getElementById('sectorGrowth'),{
+  type:'bar',
+  data:{
+    labels:['Admin Support','Real Estate','Legal','Consulting','Accounting','Retail','Logistics','Facilities','Commercial','Engineering','Education','Healthcare','Procurement','Oil & Gas','Hospitality','Construction','Aerospace','Tech','HR','Energy'],
+    datasets:[{
+      label:'% Growth',
+      data:[233,167,153,136,129,129,115,112,107,100,95,94,93,89,87,87,85,85,74,68],
+      backgroundColor:function(ctx){
+        const v=ctx.raw;
+        if(v>=150) return 'rgba(16,185,129,0.8)';
+        if(v>=100) return 'rgba(56,189,248,0.8)';
+        return 'rgba(99,102,241,0.7)';
+      },
+      borderRadius:5,borderSkipped:false
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'+'+c.raw+'%'}}},
+    scales:{x:{...noGrid,ticks:{callback:v=>v+'%'}},y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== SECTOR SHARE =====
+(()=>{
+  const secs=['Construction','Hospitality','Engineering','Tech','Comm. Svc','Oil & Gas','Healthcare','Services','Education','Energy'];
+  const novT=1880,febT=3544;
+  const novD=[237,229,137,130,111,115,84,77,63,31];
+  const febD=[443,429,274,240,230,217,163,132,123,52];
+  new Chart(document.getElementById('sectorShare'),{
+    type:'bar',
+    data:{
+      labels:secs,
+      datasets:[
+        {label:'Nov Share %',data:novD.map(v=>(v/novT*100).toFixed(1)),backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+        {label:'Feb Share %',data:febD.map(v=>(v/febT*100).toFixed(1)),backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+      scales:{x:{...noGrid,ticks:{callback:v=>v+'%'}},y:{...noGrid,ticks:{font:{size:10}}}}}
+  });
+})();
+
+// ===== SALARY BY SECTOR =====
+new Chart(document.getElementById('salSector'),{
+  type:'bar',
+  data:{
+    labels:['Healthcare','Financial','Manufacturing','Education','Sales','Services','Tech','Engineering','Construction','Oil & Gas','Hospitality'],
+    datasets:[
+      {label:'Nov 2025',data:[13757,11990,null,4525,4138,5622,5559,1833,2663,1750,1427],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb 2026',data:[14074,11990,10262,4358,5044,3661,5179,3569,2213,1750,1182],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:10}}},
+      tooltip:{callbacks:{label:c=>c.raw?'$'+c.raw.toLocaleString()+'/mo':'N/A'}}},
+    scales:{x:{...noGrid,ticks:{callback:v=>'$'+(v/1000)+'k'}},y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== SALARY BRACKETS =====
+new Chart(document.getElementById('salBracket'),{
+  type:'bar',
+  data:{
+    labels:['<$1K','$1-2K','$2-3K','$3-5K','$5-7.5K','$7.5-10K','$10-15K','$15K+'],
+    datasets:[
+      {label:'Nov',data:[21,22,12,23,8,8,12,13],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[37,42,22,47,14,12,31,25],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== SALARY TRANSPARENCY =====
+new Chart(document.getElementById('salTransp'),{
+  type:'doughnut',
+  data:{
+    labels:['Disclosed (Nov)','Hidden (Nov)','Disclosed (Feb)','Hidden (Feb)'],
+    datasets:[
+      {label:'Nov',data:[119,1761],backgroundColor:['rgba(245,158,11,0.8)','rgba(245,158,11,0.15)'],borderWidth:0},
+      {label:'Feb',data:[230,3314],backgroundColor:['rgba(99,102,241,0.8)','rgba(99,102,241,0.15)'],borderWidth:0}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,cutout:'50%',
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',font:{size:9},padding:8}}}}
+});
+
+// ===== SALARY MEDIAN =====
+new Chart(document.getElementById('salMedian'),{
+  type:'bar',
+  data:{
+    labels:['Mean','Median'],
+    datasets:[
+      {label:'Nov',data:[5390,3290],backgroundColor:NOV,borderRadius:6,borderSkipped:false},
+      {label:'Feb',data:[5627,3430],backgroundColor:FEB,borderRadius:6,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:10}}},
+      tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString()+'/mo'}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{callback:v=>'$'+(v/1000)+'k'}}}}
+});
+
+// ===== SALARY SCATTER (bubble) =====
+new Chart(document.getElementById('salScatter'),{
+  type:'bubble',
+  data:{
+    datasets:[
+      {label:'Healthcare',data:[{x:163,y:14074,r:14}],backgroundColor:'rgba(244,63,94,0.7)'},
+      {label:'Construction',data:[{x:443,y:2213,r:18}],backgroundColor:'rgba(99,102,241,0.7)'},
+      {label:'Hospitality',data:[{x:429,y:1182,r:17}],backgroundColor:'rgba(245,158,11,0.7)'},
+      {label:'Oil & Gas',data:[{x:217,y:1750,r:13}],backgroundColor:'rgba(16,185,129,0.7)'},
+      {label:'Tech',data:[{x:240,y:5179,r:13}],backgroundColor:'rgba(168,85,247,0.7)'},
+      {label:'Education',data:[{x:123,y:4358,r:10}],backgroundColor:'rgba(56,189,248,0.7)'},
+      {label:'Engineering',data:[{x:274,y:3569,r:14}],backgroundColor:'rgba(34,211,238,0.7)'},
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',font:{size:8},padding:6}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw.x+' jobs, $'+c.raw.y.toLocaleString()+'/mo'}}},
+    scales:{x:{...noGrid,title:{display:true,text:'Jobs',color:'#7a7f96',font:{size:10}}},
+      y:{...noGrid,title:{display:true,text:'Avg Salary ($/mo)',color:'#7a7f96',font:{size:10}},ticks:{callback:v=>'$'+(v/1000)+'k'}}}}
+});
+
+// ===== SKILL CLUSTERS =====
+new Chart(document.getElementById('skillCluster'),{
+  type:'bar',
+  data:{
+    labels:['Leadership & Mgmt','Communication','AI & Data Sci','Analytical','SAP/ERP','HSE & Safety','IT & Software','Quality & Compliance','Sales & Marketing','Organizational','Financial & Acct','Teamwork','Construction','Oil & Gas Tech','Cybersecurity','Technical Eng','Supply Chain','Healthcare','Project Mgmt','Digital & Emerging'],
+    datasets:[
+      {label:'Nov 2025',data:[1462,1183,911,540,452,400,403,345,341,227,188,171,151,147,127,116,94,52,47,33],backgroundColor:NOV,borderRadius:3,borderSkipped:false},
+      {label:'Feb 2026',data:[2697,2139,1675,983,833,750,745,671,590,450,361,308,275,255,241,205,180,103,91,79],backgroundColor:FEB,borderRadius:3,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:11}}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== RAW SKILLS =====
+new Chart(document.getElementById('skillRaw'),{
+  type:'bar',
+  data:{
+    labels:['Communication','Leadership','SAP/ERP','Interpersonal','Project Mgmt','Analytical','Attention to Detail','Problem-Solving','Organizational','Presentation','Risk Mgmt','Stakeholder Mgmt','Negotiation','Strong Comm.','Time Mgmt'],
+    datasets:[
+      {label:'Nov',data:[158,92,98,61,53,53,52,45,41,46,26,26,28,31,22],backgroundColor:NOV,borderRadius:3,borderSkipped:false},
+      {label:'Feb',data:[303,171,184,121,110,102,92,87,77,70,55,54,52,50,49],backgroundColor:FEB,borderRadius:3,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== SKILL GROWTH =====
+new Chart(document.getElementById('skillGrowth'),{
+  type:'bar',
+  data:{
+    labels:['Digital & Emerging','Healthcare & Medical','Organizational','Quality & Compliance','Financial & Acct','Supply Chain','Cybersecurity','HSE & Safety','Construction','IT & Software','SAP/ERP','Project Mgmt','AI & Data Sci','Leadership','Analytical'],
+    datasets:[{
+      label:'% Growth',
+      data:[139,98,98,94,92,91,90,88,82,85,84,94,84,84,82],
+      backgroundColor:function(ctx){
+        const v=ctx.raw;
+        if(v>=120) return 'rgba(16,185,129,0.85)';
+        if(v>=90) return 'rgba(56,189,248,0.8)';
+        return 'rgba(99,102,241,0.7)';
+      },
+      borderRadius:5,borderSkipped:false
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'+'+c.raw+'%'}}},
+    scales:{x:{...noGrid,ticks:{callback:v=>v+'%'}},y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== EMPLOYMENT TYPE =====
+new Chart(document.getElementById('empType'),{
+  type:'bar',
+  data:{
+    labels:['Full-Time','Contract','Internship','Part-Time','Freelance'],
+    datasets:[
+      {label:'Nov',data:[503,98,7,7,5],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[940,191,14,10,8],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== CAREER LEVEL =====
+new Chart(document.getElementById('careerLvl'),{
+  type:'bar',
+  data:{
+    labels:['Intern/Entry','Mid-Level','Senior','Management','Senior Mgmt'],
+    datasets:[
+      {label:'Nov',data:[28,110,49,53,16],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[52,213,77,74,23],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== EXPERIENCE =====
+new Chart(document.getElementById('expReq'),{
+  type:'bar',
+  data:{
+    labels:['0-2 yrs','3-5 yrs','6-8 yrs','9-10 yrs','11-15 yrs','15+ yrs'],
+    datasets:[
+      {label:'Nov',data:[198,521,339,210,148,35],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[382,976,632,395,285,66],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== EDUCATION =====
+new Chart(document.getElementById('eduLvl'),{
+  type:'bar',
+  data:{
+    labels:["Bachelor's","Diploma/Tech","Master's","High School","PhD","Other"],
+    datasets:[
+      {label:'Nov',data:[1040,198,76,23,10,43],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[1930,363,154,44,23,85],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== COMPANY SIZE =====
+new Chart(document.getElementById('compSize'),{
+  type:'bar',
+  data:{
+    labels:['Micro (1-9)','Small (10-49)','Medium (50-99)','Large (100-499)','Enterprise (500+)'],
+    datasets:[
+      {label:'Nov',data:[35,58,15,115,287],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[64,104,28,218,515],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== TOP COMPANIES =====
+new Chart(document.getElementById('topComp'),{
+  type:'bar',
+  data:{
+    labels:['Qatar Energy','UrbaCon','Strategic Aerospace','People Dynamics','Kin-Tec Recruitment','Airswift','Confidential','InterContinental','Nakilat','Accor','Premium Solutions','Egis Group','Wood Group','Power Intl','EHIF'],
+    datasets:[
+      {label:'Nov',data:[177,159,105,84,66,70,41,46,37,36,37,43,27,28,30],backgroundColor:NOV,borderRadius:3,borderSkipped:false},
+      {label:'Feb',data:[330,310,215,157,132,123,86,80,70,68,68,67,52,50,48],backgroundColor:FEB,borderRadius:3,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:11}}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{font:{size:11}}}}}
+});
+
+// ===== LANGUAGE =====
+new Chart(document.getElementById('langReq'),{
+  type:'bar',
+  data:{
+    labels:['Bilingual\n(Required)','Arabic\n(Required)','Arabic\n(Preferred)','English','Other'],
+    datasets:[
+      {label:'Nov',data:[52,46,147,377,13],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[90,86,272,715,27],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== LOCATION =====
+new Chart(document.getElementById('locDist'),{
+  type:'bar',
+  data:{
+    labels:['Doha','Qatar (Gen.)','Ras Laffan','Al Khor','Lusail','Mesaieed','Other'],
+    datasets:[
+      {label:'Nov',data:[1183,644,16,6,4,4,19],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[2217,1220,29,13,10,8,36],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== GENDER =====
+new Chart(document.getElementById('genderChart'),{
+  type:'bar',
+  data:{
+    labels:['Female','Male','Unspecified'],
+    datasets:[
+      {label:'Nov',data:[37,28,1815],backgroundColor:NOV,borderRadius:4,borderSkipped:false},
+      {label:'Feb',data:[75,56,3413],backgroundColor:FEB,borderRadius:4,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:10,font:{size:10}}}},
+    scales:{x:noGrid,y:noGrid}}
+});
+
+// ===== TOP TITLES =====
+new Chart(document.getElementById('topTitles'),{
+  type:'bar',
+  data:{
+    labels:['Accountant','Sales Executive','Sr. Electrical Eng.','Sr. Planning Eng.','Project Manager','Sr. Civil Struct. Eng.','Commis I','Electrician','Intern','Asst. Housekeeping Mgr','Electrical Engineer','Sr. Process Eng.','Business Dev Mgr','Sr. Project Mgr','Sr. Catering Server'],
+    datasets:[
+      {label:'Nov',data:[7,7,7,7,6,4,5,4,3,3,3,4,5,3,3],backgroundColor:NOV,borderRadius:3,borderSkipped:false},
+      {label:'Feb',data:[15,15,14,14,11,11,10,9,9,9,9,8,7,7,7],backgroundColor:FEB,borderRadius:3,borderSkipped:false}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:11}}}},
+    scales:{x:noGrid,y:{...noGrid,ticks:{font:{size:10}}}}}
+});
+
+// ===== SKILLS CLOUD =====
+const skData=[
+  {n:'SAP/ERP',nov:98,feb:184,c:'#6366f1'},
+  {n:'Communication',nov:158,feb:303,c:'#14b8a6'},
+  {n:'Leadership',nov:92,feb:171,c:'#f43f5e'},
+  {n:'Project Mgmt',nov:53,feb:110,c:'#f59e0b'},
+  {n:'Interpersonal',nov:61,feb:121,c:'#a855f7'},
+  {n:'Problem-Solving',nov:45,feb:87,c:'#38bdf8'},
+  {n:'Analytical',nov:53,feb:102,c:'#10b981'},
+  {n:'Attention to Detail',nov:52,feb:92,c:'#fb923c'},
+  {n:'Organizational',nov:41,feb:77,c:'#667eea'},
+  {n:'Presentation',nov:46,feb:70,c:'#f093fb'},
+  {n:'Risk Mgmt',nov:26,feb:55,c:'#4facfe'},
+  {n:'Stakeholder Mgmt',nov:26,feb:54,c:'#43e97b'},
+  {n:'Negotiation',nov:28,feb:52,c:'#fa709a'},
+  {n:'Agility',nov:27,feb:43,c:'#fbbf24'},
+  {n:'Resilience',nov:28,feb:40,c:'#30cfd0'},
+  {n:'Time Mgmt',nov:22,feb:49,c:'#a18cd1'},
+  {n:'Quality',nov:28,feb:40,c:'#fbc2eb'},
+  {n:'Teamwork',nov:20,feb:35,c:'#8fd3f4'},
+  {n:'Adaptability',nov:18,feb:35,c:'#e0c3fc'},
+  {n:'Budget Mgmt',nov:12,feb:22,c:'#d4fc79'},
+  {n:'AutoCAD/BIM',nov:8,feb:15,c:'#6366f1'},
+  {n:'Data Analysis',nov:9,feb:18,c:'#14b8a6'},
+  {n:'Cybersecurity',nov:5,feb:10,c:'#f43f5e'},
+  {n:'Python',nov:3,feb:7,c:'#a855f7'},
+  {n:'Safety/HSE',nov:22,feb:42,c:'#10b981'},
+  {n:'Compliance',nov:15,feb:30,c:'#38bdf8'},
+  {n:'Contract Mgmt',nov:10,feb:20,c:'#f59e0b'},
+  {n:'MS Office',nov:14,feb:25,c:'#fb923c'},
+  {n:'Six Sigma',nov:4,feb:9,c:'#667eea'},
+  {n:'Agile/Scrum',nov:5,feb:12,c:'#f093fb'},
+];
+const cl=document.getElementById('skCloud');
+const maxF=Math.max(...skData.map(s=>s.feb));
+skData.forEach(s=>{
+  const el=document.createElement('span');
+  el.className='sk';
+  const pct=s.nov>0?Math.round((s.feb-s.nov)/s.nov*100):999;
+  const sz=Math.max(0.72,Math.min(1.15,0.72+(s.feb/maxF)*0.43));
+  el.style.fontSize=sz+'rem';
+  el.style.borderColor=s.c;
+  el.style.background=s.c+'20';
+  el.style.color='#e4e6f0';
+  const dCls=pct>=100?'t-green':pct>=80?'t-blue':'t-amber';
+  el.innerHTML=`${s.n} <span class="ct">${s.feb}</span> <span class="delta ${dCls}">+${pct===999?'NEW':pct+'%'}</span>`;
+  cl.appendChild(el);
+});
+</script>
+</body>
+</html>

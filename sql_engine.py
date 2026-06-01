@@ -114,8 +114,7 @@ class SQLEngine:
     def __init__(self, df: pd.DataFrame):
         self.conn = sqlite3.connect(":memory:")
         df.to_sql("jobs", self.conn, index=False, if_exists="replace")
-        # Always use INTERNAL_MODEL (OpenAI GPT-4o-mini) for SQL generation
-        # regardless of what the user selected — structured output needs reliability
+        # Always use INTERNAL_MODEL for SQL generation regardless of user selection
         self._client, self._model = make_client(INTERNAL_MODEL)
         # Build schema once from the actual data — fully dynamic
         self._system = _build_system(df)
@@ -147,7 +146,13 @@ class SQLEngine:
         raw = re.sub(r"^```(?:sql)?\s*", "", raw, flags=re.IGNORECASE)
         raw = re.sub(r"\s*```\s*$", "", raw)
         raw = raw.strip()
-        return raw if raw.upper().startswith("SELECT") else ""
+        if not raw.upper().startswith("SELECT"):
+            return ""
+        # Hard cap: if the LLM forgot to add LIMIT, inject one so we never
+        # dump thousands of rows into the LLM context.
+        if "LIMIT" not in raw.upper():
+            raw = raw.rstrip(";") + " LIMIT 200"
+        return raw
 
     @staticmethod
     def _format(df: pd.DataFrame) -> str:
