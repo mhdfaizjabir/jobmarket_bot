@@ -1,0 +1,40 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# ── RAG data & generated outputs ─────────────────────────────────────────────
+RAG/data/
+RAG/chroma_db/
+RAG/comparison.json
+RAG/results.json
+RAG/dashboard-*.html
+RAG/dashboard_*.html
+RAG/tmp_*.py
+
+# ── Next.js / Node ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+frontend/.env
+frontend/.env.local
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
