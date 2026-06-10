@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 
 from analytics import AnalyticsEngine
 from sql_engine import SQLEngine
-from vector_store import VectorStore
+from vector_store import VectorStore, _build_doc_text, _build_metadata
 from config import CHAT_MODEL, INTERNAL_MODEL, build_system_prompt, make_client
 
 load_dotenv()
@@ -249,6 +249,48 @@ TECHNOLOGY/DOMAIN MAPPING — when user asks about a tech field, map it to real 
 # Module-level helpers (no class state needed)
 # ---------------------------------------------------------------------------
 
+def _job_title_roles(value: str) -> list[list[str]]:
+    """
+    Split a (possibly multi-role) job_title filter value into per-role word
+    lists, e.g. "Data Scientist, ML Engineer" -> [["data","scientist"], ["engineer"]].
+    Words of length <= 2 are dropped as too generic to be useful for matching.
+    """
+    roles = [r.strip() for r in re.split(r",|\band\b|\bor\b", str(value), flags=re.IGNORECASE) if r.strip()]
+    if not roles:
+        roles = [str(value)]
+    out: list[list[str]] = []
+    for role in roles:
+        words = [w for w in re.findall(r"[a-z0-9]+", role.lower()) if len(w) > 2]
+        if words:
+            out.append(words)
+    return out
+
+
+def _job_title_mask(col: pd.Series, value: str) -> pd.Series:
+    """
+    Boolean mask for job_title matching against `value` (one role, or several
+    comma/and/or-separated roles).
+
+    Within a single role, ALL significant words must be present (any order) —
+    otherwise a multi-word title like "software engineer" would match every
+    posting containing just "engineer" (mechanical engineer, sales engineer,
+    civil engineer, etc.), drowning out the role the user actually asked about.
+    Across multiple roles (e.g. "Data Scientist, ML Engineer, Business Analyst"
+    from `_extract_roles_from_assistant`), a posting matches if ANY role matches.
+    """
+    mask = pd.Series(False, index=col.index)
+    for words in _job_title_roles(value):
+        pattern = "".join(f"(?=.*{re.escape(w)})" for w in words)
+        mask = mask | col.str.contains(pattern, case=False, na=False, regex=True)
+    return mask
+
+
+def _job_title_matches_text(title: str, value: str) -> bool:
+    """Scalar version of `_job_title_mask` for checking a single metadata value."""
+    title_l = str(title).lower()
+    return any(all(w in title_l for w in words) for words in _job_title_roles(value))
+
+
 def _apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     """
     Narrow the DataFrame using only the core structured filters.
@@ -265,11 +307,9 @@ def _apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
         if field == "job_title":
             if "job_title" not in result.columns:
                 continue
-            words = [w for w in str(value).lower().split() if len(w) > 2]
-            if not words:
+            mask = _job_title_mask(result["job_title"], value)
+            if not mask.any():
                 continue
-            pattern = "|".join(re.escape(w) for w in words)
-            mask = result["job_title"].str.contains(pattern, case=False, na=False)
             narrowed = result[mask]
             result = narrowed if len(narrowed) >= 3 else result
         elif field == "career_level":
@@ -417,6 +457,53 @@ def _extract_roles_from_assistant(chat_history: list[dict] | None = None) -> lis
         if roles:
             return list(dict.fromkeys(roles))
     return []
+
+
+# Pull a specific job title out of a salary-style question via regex, e.g.
+# "what about salary for a software engineer" -> "software engineer".
+# Used as a safety net when the LLM decomposer fails to populate
+# filters["job_title"] — for some chat histories the small internal model
+# answers the question directly in plain English instead of returning JSON,
+# which loses the role entirely and falls back to a country-wide average.
+_JOB_TITLE_TAIL_RE = re.compile(
+    r"(?:salary|pay|compensation|wage|wages|earnings|income)\s+(?:for|of|as)\s+"
+    r"(?:an?\s+)?([a-z][a-z0-9/&+\-\s]{2,40}?)"
+    r"(?:\s+(?:role|roles|position|positions|job|jobs))?"
+    r"\s*[\?\.!]*$",
+    re.IGNORECASE,
+)
+_JOB_TITLE_HEAD_RE = re.compile(
+    r"^(?:what about\s+|how about\s+)?(?:an?\s+)?([a-z][a-z0-9/&+\-\s]{2,40}?)"
+    r"\s+(?:salary|pay|compensation|wage|wages)\b",
+    re.IGNORECASE,
+)
+_JOB_TITLE_AS_RE = re.compile(
+    r"\bas\s+(?:an?\s+)?([a-z][a-z0-9/&+\-\s]{2,40}?)"
+    r"(?:[,.]|\s+(?:what|how|i|can|do|does)\b|\s*[\?\.!]*$)",
+    re.IGNORECASE,
+)
+
+_JOB_TITLE_STOPWORDS = {
+    "i", "we", "you", "they", "it", "this", "that", "those", "these",
+    "the", "a", "an", "me", "my", "our", "expect", "can",
+}
+
+
+def _extract_job_title_from_question(question: str) -> str | None:
+    """Pull a specific job title out of a salary-style question via regex."""
+    text = question.strip()
+    for pattern in (_JOB_TITLE_TAIL_RE, _JOB_TITLE_HEAD_RE, _JOB_TITLE_AS_RE):
+        match = pattern.search(text)
+        if not match:
+            continue
+        candidate = match.group(1).strip(" ?.!,")
+        words = [w for w in candidate.split() if w]
+        if not (1 <= len(words) <= 4):
+            continue
+        if all(w.lower() in _JOB_TITLE_STOPWORDS for w in words):
+            continue
+        return candidate
+    return None
 
 
 def _matches_filter_metadata(metadata: dict, filters: dict) -> bool:
@@ -622,6 +709,27 @@ class RAGEngine:
                     filters["job_title"] = ", ".join(roles)
                     decomposed["filters"] = filters
 
+        # Safety net: a salary question that explicitly names a role
+        # (e.g. "what about salary for a software engineer") should always
+        # be scoped to that role, even if the decomposer dropped it.
+        if "job_title" not in decomposed.get("filters", {}) and self._SALARY_FORCE.search(question):
+            extracted_title = _extract_job_title_from_question(question)
+            if extracted_title:
+                decomposed = dict(decomposed)
+                filters = dict(decomposed.get("filters", {}))
+                filters["job_title"] = extracted_title
+                decomposed["filters"] = filters
+
+                # The raw question already names the role explicitly, so it
+                # makes a cleaner self-contained resolved_question than the
+                # generic _merge_followup fallback, which centers on the
+                # PREVIOUS question and can bury the role in a long snippet.
+                clean = question.strip().rstrip("?.! ")
+                country = filters.get("_country")
+                if country and country.lower() not in clean.lower():
+                    clean = f"{clean} in {country}"
+                decomposed["resolved_question"] = clean
+
         if not decomposed.get("resolved_question") and chat_history:
             decomposed["resolved_question"] = _merge_followup(question, chat_history)
 
@@ -788,10 +896,8 @@ class RAGEngine:
         # genuinely-similar roles are sitting right there in the dataset.
         if "job_title" in filters and "job_title" in summary_df.columns:
             jt = str(filters["job_title"])
-            words = [w for w in jt.lower().split() if len(w) > 2]
-            if words:
-                pattern = "|".join(re.escape(w) for w in words)
-                exact_mask = summary_df["job_title"].str.contains(pattern, case=False, na=False)
+            if any(len(w) > 2 for w in re.findall(r"[a-z0-9]+", jt.lower())):
+                exact_mask = _job_title_mask(summary_df["job_title"], jt)
                 n_match = int(exact_mask.sum())
                 if n_match < 3:
                     similar = _find_similar_titles(summary_df, jt, n=6)
@@ -897,22 +1003,71 @@ class RAGEngine:
         # Step 4 — ChromaDB: semantic search within structurally-filtered candidates
         # When SQL already answered a count/ranking, use fewer docs (qualitative context only)
         n_semantic = 4 if sql_ran else _MAX_SEMANTIC_DOCS
+        # job_title is a free-text CONTAINS filter that Qdrant can't apply at query
+        # time, so pull a larger candidate pool and re-rank locally — otherwise a
+        # query like "software engineer salary" can return generic "engineer"
+        # postings (mechanical, electrical, sales) that just rank higher by embedding
+        # similarity, pushing the actual Software Engineer postings out of the top N.
+        fetch_n = max(n_semantic, 25) if "job_title" in filters else n_semantic
         _semantic_companies: set[str] = set()
         if self.vs.has_vectors():
             chroma_where = _to_chroma_where(filters)
             try:
                 results = self.vs.search(
                     semantic_q,
-                    n_results=n_semantic,
+                    n_results=fetch_n,
                     where=chroma_where,
                 )
             except Exception as _vec_err:
                 print(f"[RAG] Vector search with filter failed ({_vec_err}) — retrying without filter")
                 # Qdrant filters may fail if the payload field is not indexed.
                 # Fall back to an unfiltered semantic search and enforce scope locally.
-                results = self.vs.search(semantic_q, n_results=n_semantic)
+                results = self.vs.search(semantic_q, n_results=fetch_n)
 
-            results = _post_filter_semantic_results(results, filters)
+            if "job_title" in filters:
+                other_filters = {k: v for k, v in filters.items() if k != "job_title"}
+                title_matches = [
+                    r for r in results
+                    if _job_title_matches_text(r["metadata"].get("job_title", ""), filters["job_title"])
+                ]
+                rest = _post_filter_semantic_results(
+                    [r for r in results if r not in title_matches], other_filters
+                )
+
+                # Vector search may not surface the exact role even from a larger
+                # candidate pool (embeddings can rank generic "engineer" postings
+                # higher than the actual role asked about). If pandas filtering
+                # finds genuine matches for this job_title, splice a few of those
+                # rows in directly so the LLM sees real postings for that role.
+                want = min(3, n_semantic)
+                if len(title_matches) < want and "job_title" in base_df.columns:
+                    job_rows = base_df[_job_title_mask(base_df["job_title"], filters["job_title"])]
+                    if "_country" in filters and "_country" in job_rows.columns:
+                        job_rows = job_rows[
+                            job_rows["_country"].astype(str).str.lower() == str(filters["_country"]).lower()
+                        ]
+                    seen_keys = {
+                        (r["metadata"].get("job_title", "").lower().strip(),
+                         r["metadata"].get("company", "").lower().strip())
+                        for r in title_matches
+                    }
+                    for _, row in job_rows.iterrows():
+                        key = (str(row.get("job_title", "")).lower().strip(),
+                               str(row.get("company", "")).lower().strip())
+                        if key in seen_keys:
+                            continue
+                        seen_keys.add(key)
+                        title_matches.append({
+                            "document": _build_doc_text(row),
+                            "metadata": _build_metadata(row),
+                            "distance": 0.0,
+                        })
+                        if len(title_matches) >= want:
+                            break
+
+                results = (title_matches + rest)[:n_semantic]
+            else:
+                results = _post_filter_semantic_results(results, filters)
 
             if results:
                 # Deduplicate: same job posted across multiple timelines → keep highest score only
