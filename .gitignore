@@ -18,10 +18,14 @@ venv/
 env/
 
 # ── RAG data & generated outputs ─────────────────────────────────────────────
-RAG/data/
-RAG/chroma_db/
+# data/ and chroma_db/_manifest.json ARE tracked — needed so a fresh deploy
+# skips re-embedding (Qdrant Cloud already has the vectors; manifest hash
+# match short-circuits needs_indexing()).
+RAG/chroma_db/*
+!RAG/chroma_db/_manifest.json
 RAG/comparison.json
 RAG/results.json
+RAG/eval_results_*.json
 RAG/dashboard-*.html
 RAG/dashboard_*.html
 RAG/tmp_*.py

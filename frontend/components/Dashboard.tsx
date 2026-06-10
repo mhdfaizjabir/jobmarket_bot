@@ -24,7 +24,6 @@ const TT_LABEL  = { color: '#c9d1d9', fontWeight: 600, marginBottom: 4 };
 const TT_ITEM   = { color: '#8b98a5', padding: '2px 0' };
 const AX_STYLE  = { fill: '#8b98a5', fontSize: 11 };
 const Y_STYLE   = { fill: '#c9d1d9', fontSize: 11 };
-const GRID_CLR  = '#1f2937';
 
 const FLAGS: Record<string, string> = {
   All: '🌍', Qatar: '🇶🇦', UAE: '🇦🇪', 'Saudi Arabia': '🇸🇦',
@@ -231,9 +230,6 @@ interface Props {
 }
 
 export default function Dashboard({ selectedDumps, allTimelines, activeTimeline, onTimelineSelect, allCountries, allCountryCounts, activeCountry, onCountrySelect }: Props) {
-  // `baseData` holds the full server response (no sector filter applied server-side).
-  // `data` is derived from `baseData` with the sector filter applied client-side.
-  const [baseData, setBaseData] = useState<DashboardData | null>(null);
   const [data,     setData]     = useState<DashboardData | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
@@ -250,7 +246,6 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
       sector: activeSector !== 'All' ? activeSector : undefined,
     })
       .then(d => {
-        setBaseData(d);
         setData(d);
         setError('');
         // Only rebuild the sector pill list when no sector is active,
