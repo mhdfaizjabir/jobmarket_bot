@@ -22,7 +22,7 @@ function ScoreBar({ score }: { score: number }) {
   const color = score > 0.7 ? '#00c9a7' : score > 0.5 ? '#ffd93d' : '#ff6b6b';
   return (
     <div className="flex items-center gap-2">
-      <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: '#30363d' }}>
+      <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
       <span className="text-xs font-mono" style={{ color }}>{score.toFixed(2)} / 1.00</span>
@@ -37,11 +37,11 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
   const hitCount = info.semantic_hits?.length ?? 0;
 
   return (
-    <div className="mb-3 rounded-lg overflow-hidden border text-xs" style={{ borderColor: '#30363d' }}>
+    <div className="mb-3 rounded-lg overflow-hidden border text-xs" style={{ borderColor: 'var(--border)' }}>
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 transition"
-        style={{ background: '#0f1117', color: '#8b98a5' }}>
+        style={{ background: 'var(--bg)', color: 'var(--muted)' }}>
         <span>
           🔍 <span className="font-semibold">Retrieval process</span>
           <span className="ml-2 text-purple-400">{info.layers_used?.join(' · ')}</span>
@@ -51,11 +51,11 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
       </button>
 
       {open && (
-        <div className="p-3 space-y-3" style={{ background: '#0d1117', borderTop: '1px solid #30363d' }}>
+        <div className="p-3 space-y-3" style={{ background: 'var(--bg-alt)', borderTop: '1px solid var(--border)' }}>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="font-semibold mb-1.5" style={{ color: '#c9d1d9' }}>Query decomposition</div>
-              <div className="space-y-1" style={{ color: '#8b98a5' }}>
+              <div className="font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Query decomposition</div>
+              <div className="space-y-1" style={{ color: 'var(--muted)' }}>
                 <div>
                   Aggregation needed:
                   <span className={`ml-1 font-semibold ${info.needs_agg ? 'text-yellow-400' : 'text-green-400'}`}>
@@ -69,19 +69,19 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
                   <div>Analysis: <span className="text-blue-400">{dc.analysis_types.join(', ')}</span></div>
                 )}
                 {dc.resolved_question && dc.resolved_question !== dc.semantic_query && (
-                  <div className="mt-1 italic" style={{ color: '#6b7280' }}>
+                  <div className="mt-1 italic" style={{ color: 'var(--muted)' }}>
                     Resolved: {dc.resolved_question.slice(0, 120)}
                   </div>
                 )}
               </div>
             </div>
             <div>
-              <div className="font-semibold mb-1.5" style={{ color: '#c9d1d9' }}>Layers used</div>
+              <div className="font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Layers used</div>
               <div className="space-y-1">
                 {(info.layers_used ?? []).map(l => (
                   <div key={l} className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
-                    <span style={{ color: '#8b98a5' }}>{l}</span>
+                    <span style={{ color: 'var(--muted)' }}>{l}</span>
                   </div>
                 ))}
               </div>
@@ -90,16 +90,16 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
 
           {info.semantic_hits?.length > 0 && (
             <div>
-              <div className="font-semibold mb-1.5" style={{ color: '#c9d1d9' }}>
+              <div className="font-semibold mb-1.5" style={{ color: 'var(--text)' }}>
                 Top {info.semantic_hits.length} semantic matches
               </div>
               <div className="space-y-1.5">
                 {info.semantic_hits.map((h, i) => (
-                  <div key={i} className="flex items-center gap-3 py-1 border-b" style={{ borderColor: '#1f2937' }}>
+                  <div key={i} className="flex items-center gap-3 py-1 border-b" style={{ borderColor: 'var(--code-bg)' }}>
                     <ScoreBar score={h.score} />
                     <div className="flex-1 min-w-0">
-                      <span className="font-semibold truncate block" style={{ color: '#c9d1d9' }}>{h.title}</span>
-                      <span style={{ color: '#6b7280' }}>{h.company} · {h.country} · {h.timeline}</span>
+                      <span className="font-semibold truncate block" style={{ color: 'var(--text)' }}>{h.title}</span>
+                      <span style={{ color: 'var(--muted)' }}>{h.company} · {h.country} · {h.timeline}</span>
                     </div>
                   </div>
                 ))}
@@ -109,9 +109,9 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
 
           {info.sql_snippet && (
             <div>
-              <div className="font-semibold mb-1" style={{ color: '#c9d1d9' }}>SQL / Pandas result (preview)</div>
+              <div className="font-semibold mb-1" style={{ color: 'var(--text)' }}>SQL / Pandas result (preview)</div>
               <pre className="overflow-x-auto p-2 rounded text-xs leading-relaxed"
-                   style={{ background: '#161b22', color: '#8b98a5', border: '1px solid #30363d' }}>
+                   style={{ background: 'var(--card)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                 {info.sql_snippet}
               </pre>
             </div>
@@ -126,28 +126,28 @@ function RetrievalPanel({ info }: { info: RetrievalInfo }) {
 
 function BotMessage({ content, streaming }: { content: string; streaming?: boolean }) {
   return (
-    <div className="text-sm leading-relaxed" style={{ color: '#e4e6f0' }}>
+    <div className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
       <ReactMarkdown
         components={{
           p:    ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
           ul:   ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
           ol:   ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
-          li:   ({ children }) => <li style={{ color: '#c9d1d9' }}>{children}</li>,
-          strong: ({ children }) => <strong style={{ color: '#ffffff' }}>{children}</strong>,
-          em:   ({ children }) => <em style={{ color: '#a5b4fc' }}>{children}</em>,
+          li:   ({ children }) => <li style={{ color: 'var(--text)' }}>{children}</li>,
+          strong: ({ children }) => <strong style={{ color: 'var(--text)' }}>{children}</strong>,
+          em:   ({ children }) => <em style={{ color: 'var(--accent)' }}>{children}</em>,
           code: ({ children, className }) => {
             const isBlock = className?.includes('language-');
             return isBlock
-              ? <pre className="overflow-x-auto p-3 rounded my-2 text-xs" style={{ background: '#0d1117', border: '1px solid #30363d', color: '#8b98a5' }}><code>{children}</code></pre>
-              : <code className="px-1 py-0.5 rounded text-xs" style={{ background: '#21262d', color: '#f97316' }}>{children}</code>;
+              ? <pre className="overflow-x-auto p-3 rounded my-2 text-xs" style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--muted)' }}><code>{children}</code></pre>
+              : <code className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--card-alt)', color: '#f97316' }}>{children}</code>;
           },
-          h1: ({ children }) => <h1 className="text-base font-bold mb-2 mt-3" style={{ color: '#ffffff' }}>{children}</h1>,
-          h2: ({ children }) => <h2 className="text-sm font-bold mb-1.5 mt-3" style={{ color: '#e4e6f0' }}>{children}</h2>,
-          h3: ({ children }) => <h3 className="text-xs font-bold mb-1 mt-2" style={{ color: '#c9d1d9' }}>{children}</h3>,
-          blockquote: ({ children }) => <blockquote className="border-l-2 pl-3 my-2 italic" style={{ borderColor: '#6c63ff', color: '#8b98a5' }}>{children}</blockquote>,
-          table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs w-full border-collapse" style={{ borderColor: '#30363d' }}>{children}</table></div>,
-          th: ({ children }) => <th className="px-2 py-1 text-left font-semibold border" style={{ borderColor: '#30363d', background: '#21262d', color: '#c9d1d9' }}>{children}</th>,
-          td: ({ children }) => <td className="px-2 py-1 border" style={{ borderColor: '#30363d', color: '#8b98a5' }}>{children}</td>,
+          h1: ({ children }) => <h1 className="text-base font-bold mb-2 mt-3" style={{ color: 'var(--text)' }}>{children}</h1>,
+          h2: ({ children }) => <h2 className="text-sm font-bold mb-1.5 mt-3" style={{ color: 'var(--text)' }}>{children}</h2>,
+          h3: ({ children }) => <h3 className="text-xs font-bold mb-1 mt-2" style={{ color: 'var(--text)' }}>{children}</h3>,
+          blockquote: ({ children }) => <blockquote className="border-l-2 pl-3 my-2 italic" style={{ borderColor: 'var(--accent)', color: 'var(--muted)' }}>{children}</blockquote>,
+          table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs w-full border-collapse" style={{ borderColor: 'var(--border)' }}>{children}</table></div>,
+          th: ({ children }) => <th className="px-2 py-1 text-left font-semibold border" style={{ borderColor: 'var(--border)', background: 'var(--card-alt)', color: 'var(--text)' }}>{children}</th>,
+          td: ({ children }) => <td className="px-2 py-1 border" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>{children}</td>,
         }}
       >
         {content}
@@ -292,7 +292,7 @@ export default function Chat({ selectedDumps, model }: Props) {
           <button
             onClick={() => { setSessionError(''); createSession().then(setSessionId).catch(() => setSessionError('Still cannot connect. Check if the server is running.')); }}
             className="text-xs px-4 py-2 rounded-lg border hover:border-purple-500 transition"
-            style={{ borderColor: '#30363d', color: '#8b98a5' }}>
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
             Retry connection
           </button>
         </div>
@@ -304,8 +304,8 @@ export default function Chat({ selectedDumps, model }: Props) {
     <div className="flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-2 border-b" style={{ borderColor: '#30363d' }}>
-        <span className="text-xs" style={{ color: '#8b98a5' }}>
+      <div className="flex items-center justify-between px-6 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+        <span className="text-xs" style={{ color: 'var(--muted)' }}>
           {selectedDumps.length ? `${selectedDumps.length} datasets selected` : 'All data'} ·
           model: <code className="text-purple-400 ml-1">{model.split('/').pop()}</code>
           {!sessionId && <span className="ml-2 text-yellow-400">connecting…</span>}
@@ -313,7 +313,7 @@ export default function Chat({ selectedDumps, model }: Props) {
         {messages.length > 0 && (
           <button onClick={handleClear}
             className="text-xs px-3 py-1 rounded border hover:border-red-500 hover:text-red-400 transition"
-            style={{ borderColor: '#30363d', color: '#8b98a5' }}>
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
             Clear chat
           </button>
         )}
@@ -325,8 +325,8 @@ export default function Chat({ selectedDumps, model }: Props) {
           <div className="space-y-4">
             <div className="text-center mt-8">
               <div className="text-3xl mb-2">🌍</div>
-              <div className="font-bold text-white text-lg">GCC Job Market Assistant</div>
-              <div className="text-sm mt-1" style={{ color: '#8b98a5' }}>
+              <div className="font-bold text-lg" style={{ color: 'var(--text)' }}>GCC Job Market Assistant</div>
+              <div className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
                 Ask anything about the GCC job market
               </div>
             </div>
@@ -342,7 +342,7 @@ export default function Chat({ selectedDumps, model }: Props) {
             <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'bg-purple-600 text-white' : ''}`}
-                style={m.role === 'assistant' ? { background: '#161b22', border: '1px solid #30363d' } : {}}>
+                style={m.role === 'assistant' ? { background: 'var(--card)', border: '1px solid var(--border)' } : {}}>
                 {m.role === 'assistant'
                   ? <BotMessage content={m.content} streaming={m.streaming} />
                   : m.content
@@ -356,7 +356,7 @@ export default function Chat({ selectedDumps, model }: Props) {
         {searching && (
           <div className="flex justify-start">
             <div className="rounded-xl px-4 py-3 text-xs flex items-center gap-2"
-                 style={{ background: '#161b22', border: '1px solid #30363d', color: '#8b98a5' }}>
+                 style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
               <div className="w-3 h-3 rounded-full border border-purple-400 border-t-transparent animate-spin" />
               Searching database…
             </div>
@@ -367,7 +367,7 @@ export default function Chat({ selectedDumps, model }: Props) {
       </div>
 
       {/* Input */}
-      <div className="px-6 py-4 border-t" style={{ borderColor: '#30363d' }}>
+      <div className="px-6 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
         <form onSubmit={e => { e.preventDefault(); send(input); }} className="flex gap-3 items-end">
           <textarea
             ref={inputRef}
@@ -378,23 +378,23 @@ export default function Chat({ selectedDumps, model }: Props) {
             rows={2}
             disabled={!!sessionError}
             className="flex-1 resize-none rounded-xl px-4 py-3 text-sm outline-none border focus:border-purple-500 transition disabled:opacity-40"
-            style={{ background: '#161b22', borderColor: '#30363d', color: '#e4e6f0' }}
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)' }}
           />
           {streaming ? (
             <button type="button" onClick={stopStreaming}
               className="px-5 py-3 rounded-xl font-semibold text-sm transition"
-              style={{ background: '#374151', color: '#e4e6f0', border: '1px solid #4b5563' }}>
+              style={{ background: 'var(--card-alt)', color: 'var(--text)', border: '1px solid var(--border)' }}>
               ⏹ Stop
             </button>
           ) : (
             <button type="submit" disabled={!input.trim() || !sessionId}
               className="px-5 py-3 rounded-xl font-semibold text-sm transition disabled:opacity-40"
-              style={{ background: '#6c63ff', color: 'white' }}>
+              style={{ background: 'var(--accent)', color: 'white' }}>
               ➤
             </button>
           )}
         </form>
-        <div className="text-xs mt-2" style={{ color: '#4a5568' }}>
+        <div className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
           {streaming
             ? 'Enter to interrupt and ask a new question · ⏹ Stop to cancel'
             : 'Shift+Enter for new line · Enter to send'}

@@ -41,15 +41,15 @@ export default function Sidebar({
     return (
       <aside
         className="flex flex-col items-center pt-4 gap-3 border-r"
-        style={{ width: 44, background: '#0d1117', borderColor: '#30363d', flexShrink: 0 }}>
+        style={{ width: 44, background: 'var(--bg-alt)', borderColor: 'var(--border)', flexShrink: 0 }}>
         <button
           onClick={onCollapse}
           title="Open sidebar"
           className="text-lg hover:text-purple-400 transition"
-          style={{ color: '#8b98a5' }}>
+          style={{ color: 'var(--muted)' }}>
           ☰
         </button>
-        <div className="text-xs font-semibold mt-2" style={{ color: '#6c63ff', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+        <div className="text-xs font-semibold mt-2" style={{ color: 'var(--accent)', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
           {selected.length} datasets
         </div>
       </aside>
@@ -59,46 +59,46 @@ export default function Sidebar({
   return (
     <aside
       className="flex flex-col gap-4 p-4 overflow-y-auto border-r"
-      style={{ width: 256, minWidth: 256, background: '#0d1117', borderColor: '#30363d' }}>
+      style={{ width: 256, minWidth: 256, background: 'var(--bg-alt)', borderColor: 'var(--border)' }}>
 
       {/* Header + collapse button */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-base font-bold text-white">🌍 GCC Job Market</div>
-          <div className="text-xs" style={{ color: '#8b98a5' }}>Intelligence Assistant</div>
+          <div className="text-base font-bold" style={{ color: 'var(--text)' }}>🌍 GCC Job Market</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Intelligence Assistant</div>
         </div>
         <button
           onClick={onCollapse}
           title="Collapse sidebar"
           className="text-lg mt-0.5 hover:text-purple-400 transition"
-          style={{ color: '#8b98a5' }}>
+          style={{ color: 'var(--muted)' }}>
           ✕
         </button>
       </div>
 
-      <hr style={{ borderColor: '#30363d' }} />
+      <hr style={{ borderColor: 'var(--border)' }} />
 
       {/* Dataset selector */}
       <div>
-        <div className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#c9d1d9' }}>
+        <div className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: 'var(--text)' }}>
           📂 Datasets
         </div>
         <div className="flex gap-2 mb-3">
           <button onClick={onSelectAll}
             className="flex-1 text-xs py-1 rounded border hover:bg-purple-500/10 hover:border-purple-500 transition"
-            style={{ borderColor: '#30363d', color: '#8b98a5' }}>
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
             All
           </button>
           <button onClick={onClearAll}
             className="flex-1 text-xs py-1 rounded border hover:bg-white/5 transition"
-            style={{ borderColor: '#30363d', color: '#8b98a5' }}>
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
             None
           </button>
         </div>
 
         {Object.entries(byCountry).sort().map(([country, cDumps]) => (
           <div key={country} className="mb-3">
-            <div className="text-xs font-semibold mb-1.5" style={{ color: '#c9d1d9' }}>
+            <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>
               {COUNTRY_FLAGS[country] ?? '🌍'} {country}
             </div>
             {cDumps.sort((a, b) => a._timeline.localeCompare(b._timeline)).map(d => (
@@ -109,8 +109,8 @@ export default function Sidebar({
                   onChange={() => onToggle(d._dump_id)}
                   className="accent-purple-500 mt-0.5"
                 />
-                <span className="text-xs leading-tight" style={{ color: '#8b98a5' }}>
-                  <span className="group-hover:text-purple-400 transition" style={{ color: '#c9d1d9' }}>
+                <span className="text-xs leading-tight" style={{ color: 'var(--muted)' }}>
+                  <span className="group-hover:text-purple-400 transition" style={{ color: 'var(--text)' }}>
                     {d._timeline}
                   </span>
                   <br />
@@ -121,20 +121,20 @@ export default function Sidebar({
           </div>
         ))}
 
-        <div className="text-xs font-bold mt-2" style={{ color: '#6c63ff' }}>
+        <div className="text-xs font-bold mt-2" style={{ color: 'var(--accent)' }}>
           📊 {totalJobs > 0 ? `${totalJobs.toLocaleString()} jobs selected` : 'None selected'}
         </div>
       </div>
 
-      <hr style={{ borderColor: '#30363d' }} />
+      <hr style={{ borderColor: 'var(--border)' }} />
 
       {/* Model selector */}
       <div>
-        <div className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#c9d1d9' }}>
+        <div className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: 'var(--text)' }}>
           🤖 Model
         </div>
         {models.length === 0 && (
-          <div className="text-xs" style={{ color: '#4a5568' }}>Loading models…</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Loading models…</div>
         )}
         {models.map(({ label, value }) => (
           <label key={value} className="flex items-start gap-2 mb-2 cursor-pointer">
@@ -146,16 +146,16 @@ export default function Sidebar({
               onChange={() => onModelChange(value)}
               className="accent-purple-500 mt-0.5"
             />
-            <span className="text-xs leading-tight" style={{ color: model === value ? '#e4e6f0' : '#8b98a5' }}>
+            <span className="text-xs leading-tight" style={{ color: model === value ? 'var(--text)' : 'var(--muted)' }}>
               {label}
             </span>
           </label>
         ))}
       </div>
 
-      <hr style={{ borderColor: '#30363d' }} />
+      <hr style={{ borderColor: 'var(--border)' }} />
 
-      <div className="text-xs mt-auto pb-2" style={{ color: '#4a5568' }}>
+      <div className="text-xs mt-auto pb-2" style={{ color: 'var(--muted)' }}>
         Source: Bayt.com<br />
         {timelines.join(' · ')}
       </div>

@@ -13,17 +13,17 @@ const TL_PALETTE = ['#6c63ff', '#00c9a7', '#ffd93d', '#ff6b6b', '#a855f7'];
 const CAT_PALETTE = ['#6c63ff','#00c9a7','#ffd93d','#ff6b6b','#a855f7','#4ecdc4','#ff8e53','#44b09e','#667eea','#f093fb','#4facfe','#43e97b'];
 
 const TT_STYLE = {
-  backgroundColor: '#1a2332',
-  border: '1px solid #30363d',
+  backgroundColor: 'var(--card-alt)',
+  border: '1px solid var(--border)',
   borderRadius: 8,
-  color: '#e4e6f0',
+  color: 'var(--text)',
   fontSize: 12,
   padding: '8px 12px',
 };
-const TT_LABEL  = { color: '#c9d1d9', fontWeight: 600, marginBottom: 4 };
-const TT_ITEM   = { color: '#8b98a5', padding: '2px 0' };
-const AX_STYLE  = { fill: '#8b98a5', fontSize: 11 };
-const Y_STYLE   = { fill: '#c9d1d9', fontSize: 11 };
+const TT_LABEL  = { color: 'var(--text)', fontWeight: 600, marginBottom: 4 };
+const TT_ITEM   = { color: 'var(--muted)', padding: '2px 0' };
+const AX_STYLE  = { fill: 'var(--muted)', fontSize: 11 };
+const Y_STYLE   = { fill: 'var(--text)', fontSize: 11 };
 
 const FLAGS: Record<string, string> = {
   All: '🌍', Qatar: '🇶🇦', UAE: '🇦🇪', 'Saudi Arabia': '🇸🇦',
@@ -58,7 +58,7 @@ function HBar({ data, x, y, color = '#6c63ff', height }: {
           tick={Y_STYLE} axisLine={false} tickLine={false} />
         {tt()}
         <Bar dataKey={x} fill={color} radius={[0, 4, 4, 0]}
-          label={{ position: 'right', fill: '#8b98a5', fontSize: 10,
+          label={{ position: 'right', fill: 'var(--muted)', fontSize: 10,
             formatter: (v: unknown) => Number(v) >= 1000 ? `${(Number(v)/1000).toFixed(1)}k` : String(v) }} />
       </BarChart>
     </ResponsiveContainer>
@@ -84,7 +84,7 @@ function HBarStacked({ rows, timelines, tlColors, height }: {
         <YAxis type="category" dataKey="sector" width={175}
           tick={Y_STYLE} axisLine={false} tickLine={false} />
         {tt()}
-        <Legend wrapperStyle={{ fontSize: 11, color: '#8b98a5', paddingTop: 8 }} />
+        <Legend wrapperStyle={{ fontSize: 11, color: 'var(--muted)', paddingTop: 8 }} />
         {timelines.map((tl, i) => (
           <Bar key={tl} dataKey={tl} stackId="s" fill={tlColors[tl] ?? TL_PALETTE[i % TL_PALETTE.length]}
             radius={i === timelines.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]} />
@@ -100,7 +100,7 @@ function VBar({ data, x, y, height }: { data: Record<string,unknown>[]; x: strin
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ left: 0, right: 8, top: 4, bottom: 75 }}>
         <XAxis dataKey={x}
-          tick={{ fill: '#8b98a5', fontSize: 10, angle: -40, textAnchor: 'end' }}
+          tick={{ fill: 'var(--muted)', fontSize: 10, angle: -40, textAnchor: 'end' }}
           axisLine={false} tickLine={false} interval={0} />
         <YAxis tick={AX_STYLE} axisLine={false} tickLine={false} />
         {tt()}
@@ -124,7 +124,7 @@ function Donut({ data, name, value }: { data: Record<string,unknown>[]; name: st
           {data.map((_, i) => <Cell key={i} fill={CAT_PALETTE[i % CAT_PALETTE.length]} />)}
         </Pie>
         {tt()}
-        <Legend wrapperStyle={{ fontSize: 11, color: '#8b98a5' }} />
+        <Legend wrapperStyle={{ fontSize: 11, color: 'var(--muted)' }} />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -135,10 +135,10 @@ function Donut({ data, name, value }: { data: Record<string,unknown>[]; name: st
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl mb-5 overflow-hidden"
-         style={{ background: '#161b22', border: '1px solid #30363d' }}>
-      <div className="px-5 pt-4 pb-3 border-b" style={{ borderColor: '#21262d' }}>
-        <div className="font-bold text-white text-sm">{title}</div>
-        {subtitle && <div className="text-xs mt-0.5" style={{ color: '#8b98a5' }}>{subtitle}</div>}
+         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+      <div className="px-5 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="font-bold text-sm" style={{ color: 'var(--text)' }}>{title}</div>
+        {subtitle && <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{subtitle}</div>}
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -159,13 +159,13 @@ function CountryTabs({ countries, counts, active, onChange }: {
           <button key={c} onClick={() => onChange(c)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all"
             style={isActive
-              ? { background: '#6c63ff', color: '#fff', border: '1px solid #6c63ff' }
-              : { background: '#161b22', color: '#8b98a5', border: '1px solid #30363d' }}>
+              ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
+              : { background: 'var(--card)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
             <span>{FLAGS[c] ?? '🌍'}</span>
             <span>{c}</span>
             {c !== 'All' && counts[c] !== undefined && (
               <span className="ml-1 px-1.5 py-0.5 rounded text-xs"
-                style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#21262d', color: isActive ? '#fff' : '#6b7280', fontSize: 10 }}>
+                style={{ background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--card-alt)', color: isActive ? '#fff' : 'var(--muted)', fontSize: 10 }}>
                 {counts[c].toLocaleString()}
               </span>
             )}
@@ -182,16 +182,16 @@ function TimelinePills({ timelines, tlColors, active, onChange }: {
   const all = ['All', ...timelines];
   return (
     <div className="flex gap-2 flex-wrap items-center">
-      <span className="text-xs font-semibold mr-1" style={{ color: '#8b98a5' }}>Timeline:</span>
+      <span className="text-xs font-semibold mr-1" style={{ color: 'var(--muted)' }}>Timeline:</span>
       {all.map((t, i) => {
         const isActive = active === t;
-        const bgColor  = t === 'All' ? '#6c63ff' : (tlColors[t] ?? TL_PALETTE[(i - 1) % TL_PALETTE.length]);
+        const bgColor  = t === 'All' ? 'var(--accent)' : (tlColors[t] ?? TL_PALETTE[(i - 1) % TL_PALETTE.length]);
         return (
           <button key={t} onClick={() => onChange(t)}
             className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
             style={isActive
               ? { background: bgColor, color: '#fff', border: `1px solid ${bgColor}` }
-              : { background: 'transparent', color: '#8b98a5', border: '1px solid #30363d' }}>
+              : { background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}>
             {t}
           </button>
         );
@@ -279,7 +279,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
     <div className="flex items-center justify-center h-64">
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
-        <div className="text-sm" style={{ color: '#8b98a5' }}>Loading dashboard…</div>
+        <div className="text-sm" style={{ color: 'var(--muted)' }}>Loading dashboard…</div>
       </div>
     </div>
   );
@@ -297,7 +297,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
 
       {/* ── Navigation ─────────────────────────────────────────────────────── */}
       <div className="rounded-xl mb-5 p-4 space-y-3"
-           style={{ background: '#161b22', border: '1px solid #30363d' }}>
+           style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
         <CountryTabs
           countries={allCountries}
           counts={allCountryCounts}
@@ -315,23 +315,23 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
 
         {/* Sector filter */}
         {allSectors.length > 0 && (
-          <div className="flex items-center gap-3 flex-wrap pt-1 border-t" style={{ borderColor: '#21262d' }}>
-            <span className="text-xs font-semibold" style={{ color: '#8b98a5' }}>Sector:</span>
+          <div className="flex items-center gap-3 flex-wrap pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Sector:</span>
             <div className="flex gap-2 flex-wrap flex-1">
               <button
                 onClick={() => setActiveSector('All')}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                 style={activeSector === 'All'
-                  ? { background: '#374151', color: '#fff', border: '1px solid #6b7280' }
-                  : { background: 'transparent', color: '#8b98a5', border: '1px solid #30363d' }}>
+                  ? { background: 'var(--card-alt)', color: 'var(--text)', border: '1px solid var(--muted)' }
+                  : { background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                 All Sectors
               </button>
               {allSectors.map(s => (
                 <button key={s} onClick={() => setActiveSector(s)}
                   className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                   style={activeSector === s
-                    ? { background: '#6c63ff', color: '#fff', border: '1px solid #6c63ff' }
-                    : { background: 'transparent', color: '#8b98a5', border: '1px solid #30363d' }}>
+                    ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
+                    : { background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                   {s}
                 </button>
               ))}
@@ -339,7 +339,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
             {activeSector !== 'All' && (
               <button onClick={() => setActiveSector('All')}
                 className="text-xs px-2 py-1 rounded hover:text-red-400 transition ml-auto"
-                style={{ color: '#6b7280' }}>
+                style={{ color: 'var(--muted)' }}>
                 ✕ Clear
               </button>
             )}
@@ -377,16 +377,16 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
             : { icon: '🏢', label: 'Top Sector', value: sectorRows.length > 0 ? String(sectorRows[sectorRows.length - 1]?.sector ?? '—') : '—', sub: 'by posting volume' },
         ].map((k, i) => (
           <div key={i} className="rounded-xl p-4"
-               style={{ background: '#161b22', border: '1px solid #30363d' }}>
+               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
             <div className="text-xl mb-1">{k.icon}</div>
-            <div className="text-xl font-bold text-white leading-tight">{k.value}</div>
+            <div className="text-xl font-bold leading-tight" style={{ color: 'var(--text)' }}>{k.value}</div>
             {'delta' in k && k.delta && (
               <div className={`text-xs font-bold mt-0.5 ${parseFloat(k.delta as string) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {k.delta}
               </div>
             )}
-            <div className="text-xs mt-1 font-semibold" style={{ color: '#8b98a5' }}>{k.label}</div>
-            <div className="text-xs" style={{ color: '#4a5568' }}>{k.sub}</div>
+            <div className="text-xs mt-1 font-semibold" style={{ color: 'var(--muted)' }}>{k.label}</div>
+            <div className="text-xs" style={{ color: 'var(--muted)' }}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -425,7 +425,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {data.salary.by_sector.length > 0 && (
               <div>
-                <div className="text-xs font-semibold mb-3" style={{ color: '#8b98a5' }}>
+                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--muted)' }}>
                   Average Monthly Salary by Sector (USD)
                 </div>
                 <HBar
@@ -437,7 +437,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
             )}
             {data.salary.distribution.length > 0 && (
               <div>
-                <div className="text-xs font-semibold mb-3" style={{ color: '#8b98a5' }}>
+                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--muted)' }}>
                   Salary Brackets (USD / month)
                 </div>
                 <VBar data={data.salary.distribution} x="bracket" y="count" height={300} />
@@ -515,7 +515,7 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
             <span className={`text-2xl font-bold ${data.trends.overall_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {data.trends.overall_pct > 0 ? '+' : ''}{data.trends.overall_pct}%
             </span>
-            <span className="text-sm" style={{ color: '#8b98a5' }}>overall change</span>
+            <span className="text-sm" style={{ color: 'var(--muted)' }}>overall change</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -523,12 +523,12 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
                 ▲ Growing Sectors
               </div>
               {data.trends.growing.length === 0
-                ? <div className="text-xs" style={{ color: '#4a5568' }}>None in current selection</div>
+                ? <div className="text-xs" style={{ color: 'var(--muted)' }}>None in current selection</div>
                 : data.trends.growing.map(r => (
-                <div key={r.sector} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: '#21262d' }}>
+                <div key={r.sector} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
                   <div className="flex-1">
-                    <div className="text-xs font-semibold" style={{ color: '#c9d1d9' }}>{r.sector}</div>
-                    <div className="text-xs" style={{ color: '#6b7280' }}>
+                    <div className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{r.sector}</div>
+                    <div className="text-xs" style={{ color: 'var(--muted)' }}>
                       {r.count_t1.toLocaleString()} → {r.count_t2.toLocaleString()}
                     </div>
                   </div>
@@ -541,12 +541,12 @@ export default function Dashboard({ selectedDumps, allTimelines, activeTimeline,
             <div>
               <div className="text-xs font-bold text-red-400 mb-3">▼ Declining Sectors</div>
               {data.trends.declining.length === 0
-                ? <div className="text-xs" style={{ color: '#4a5568' }}>None in current selection</div>
+                ? <div className="text-xs" style={{ color: 'var(--muted)' }}>None in current selection</div>
                 : data.trends.declining.map(r => (
-                <div key={r.sector} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: '#21262d' }}>
+                <div key={r.sector} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
                   <div className="flex-1">
-                    <div className="text-xs font-semibold" style={{ color: '#c9d1d9' }}>{r.sector}</div>
-                    <div className="text-xs" style={{ color: '#6b7280' }}>
+                    <div className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{r.sector}</div>
+                    <div className="text-xs" style={{ color: 'var(--muted)' }}>
                       {r.count_t1.toLocaleString()} → {r.count_t2.toLocaleString()}
                     </div>
                   </div>

@@ -1,14 +1,35 @@
 @import "tailwindcss";
 
-:root {
-  --bg:     #0f1117;
-  --card:   #161b22;
-  --border: #30363d;
-  --text:   #e4e6f0;
-  --muted:  #8b98a5;
+:root,
+[data-theme="dark"] {
+  --bg:      #0f1117;
+  --bg-alt:  #0d1117;
+  --card:    #161b22;
+  --card-alt:#21262d;
+  --border:  #30363d;
+  --text:    #e4e6f0;
+  --muted:   #8b98a5;
+  --accent:  #6c63ff;
+  --code-bg: #1f2937;
+}
+
+[data-theme="light"] {
+  --bg:      #f6f7fb;
+  --bg-alt:  #eef0f5;
+  --card:    #ffffff;
+  --card-alt:#f1f3f8;
+  --border:  #dde2eb;
+  --text:    #1a202c;
+  --muted:   #6b7280;
+  --accent:  #6c63ff;
+  --code-bg: #e5e7eb;
 }
 
 * { box-sizing: border-box; }
+
+html, body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
 
 body {
   background: var(--bg);
@@ -33,11 +54,13 @@ body {
 .prose-dark h3 { font-size: 1rem; font-weight: 700; margin: 0.8em 0 0.3em; }
 .prose-dark ul { padding-left: 1.4em; }
 .prose-dark li { margin: 0.25em 0; }
-.prose-dark strong { color: #e4e6f0; }
+.prose-dark strong { color: var(--text); }
 .prose-dark code {
-  background: #1f2937;
+  background: var(--code-bg);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 0.85em;
   font-family: monospace;
 }
+
+[dir="rtl"] .prose-dark ul { padding-left: 0; padding-right: 1.4em; }
