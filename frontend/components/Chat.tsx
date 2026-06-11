@@ -5,15 +5,6 @@ import ReactMarkdown from 'react-markdown';
 import { createSession, clearSession, streamChat } from '@/lib/api';
 import { Message, RetrievalInfo } from '@/lib/types';
 
-const SAMPLES = [
-  'How many Full-Time jobs are there?',
-  'What are the top in-demand skills?',
-  'Which sector is growing fastest?',
-  'Compare Qatar vs UAE job market.',
-  'What companies are hiring the most?',
-  'Which career level has most opportunities?',
-];
-
 function friendlyError(err: unknown): string {
   if (!(err instanceof Error)) return 'Something went wrong. Please try again.';
   if (err.name === 'AbortError') return '';
@@ -339,21 +330,14 @@ export default function Chat({ selectedDumps, model }: Props) {
                 Ask anything about the GCC job market
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-6 max-w-2xl mx-auto">
-              {SAMPLES.map(q => (
-                <button key={q} onClick={() => send(q)} disabled={!sessionId}
-                  className="text-left text-xs px-4 py-3 rounded-lg border hover:border-purple-500 hover:bg-purple-500/10 transition disabled:opacity-40"
-                  style={{ borderColor: '#30363d', color: '#8b98a5' }}>
-                  {q}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
         {messages.map(m => (
           <div key={m.id}>
-            {m.role === 'assistant' && m.retrieval && <RetrievalPanel info={m.retrieval} />}
+            {m.role === 'assistant' && m.retrieval && m.retrieval.layers_used.length > 0 && (
+              <RetrievalPanel info={m.retrieval} />
+            )}
 
             <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div

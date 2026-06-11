@@ -381,6 +381,45 @@ def _to_chroma_where(filters: dict) -> dict | None:
     return {"$and": [{k: v} for k, v in exact.items()]}
 
 
+_CHITCHAT_RE = re.compile(
+    r"^(?:hi|hello|hey|hiya|yo|sup|howdy|good morning|good afternoon|good evening|good night)\b"
+    r"|^(?:bye|goodbye|see ya|take care)\b"
+    r"|\b(?:thanks|thank you|thx|ty|cheers|appreciate it)\b"
+    r"|\bhow'?s?\s+(?:is\s+|are\s+)?(?:\w+\s+)*(?:going|life|things|everything|you|u)\b"
+    r"|\bwhat'?s up\b"
+    r"|\bw(?:h?a)?(?:s+|z+|dd)up\b"
+    r"|\bwhat\s+(?:all\s+)?(?:can|could)\s+(?:you|u)\s+do\b"
+    r"|^who\s+are\s+you\b"
+    r"|^what\s+are\s+you\b"
+    r"|\btell me about yourself\b"
+    r"|^(?:ok|okay|cool|nice|great|awesome|perfect|got it|alright|sounds good|no worries|sure|np)[\s!.,]*$",
+    re.IGNORECASE,
+)
+
+# Data-related keywords — if present, the message is NOT pure chitchat even if
+# it also matches _CHITCHAT_RE (e.g. "thanks, what about salaries?").
+_CHITCHAT_DATA_RE = re.compile(
+    r"\b(job|jobs|salary|salaries|pay|compensation|skill|skills|company|companies|"
+    r"sector|industry|country|qatar|uae|saudi|career|posting|postings|"
+    r"trend|market|hiring|vacanc|role|roles|position|positions)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_chitchat(question: str) -> bool:
+    """
+    Detect greetings, thanks, farewells, and meta questions ("what can you do",
+    "how are you") that need no data retrieval at all — running SQL/Pandas and
+    vector search for these wastes time and surfaces irrelevant postings.
+    """
+    text = str(question or "").strip()
+    if not text or len(text) > 60:
+        return False
+    if not _CHITCHAT_RE.search(text):
+        return False
+    return not _CHITCHAT_DATA_RE.search(text)
+
+
 def _is_short_followup(question: str) -> bool:
     """Detect a likely follow-up question that depends on prior context."""
     if not question:
@@ -683,6 +722,19 @@ class RAGEngine:
         question: str,
         chat_history: list[dict] | None = None,
     ) -> dict:
+        # Greetings, thanks, farewells, "what can you do" etc. need no retrieval —
+        # skip the decomposer LLM call entirely and short-circuit SQL/Pandas/vector
+        # search downstream.
+        if _is_chitchat(question):
+            return {
+                "filters": {},
+                "semantic_query": "",
+                "needs_aggregation": False,
+                "analysis_types": [],
+                "resolved_question": question,
+                "_chitchat": True,
+            }
+
         decomposed = self._decompose(question, chat_history)
         countries = sorted(self.analytics.df["_country"].dropna().unique().tolist()) \
                     if "_country" in self.analytics.df.columns else []
@@ -838,6 +890,15 @@ class RAGEngine:
                     if "_country" in df.columns else []
 
         decomposed     = self._normalize_decomposed(question, chat_history)
+
+        if decomposed.get("_chitchat"):
+            return (
+                "CONVERSATIONAL MESSAGE — no data retrieval needed. Respond briefly and "
+                "naturally, like a normal assistant. If asked what you can do, briefly "
+                "mention you can answer questions about the GCC job market: posting "
+                "counts, salaries, in-demand skills, top companies/sectors, and trends "
+                "across Qatar, UAE, and Saudi Arabia."
+            )
 
         filters        = decomposed.get("filters", {})
         needs_agg      = decomposed.get("needs_aggregation", False)
@@ -1284,6 +1345,18 @@ class RAGEngine:
                     if "_country" in df.columns else []
 
         decomposed     = self._normalize_decomposed(question, chat_history)
+
+        if decomposed.get("_chitchat"):
+            return {
+                "decomposed":     decomposed,
+                "filters":        {},
+                "analysis_types": [],
+                "needs_agg":      False,
+                "layers_used":    [],
+                "sql_snippet":    "",
+                "semantic_hits":  [],
+            }
+
         filters        = decomposed.get("filters", {})
         needs_agg      = decomposed.get("needs_aggregation", False)
         analysis_types = decomposed.get("analysis_types", [])
