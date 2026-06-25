@@ -1,18 +1,18 @@
 # GCC Job Market Intelligence System
 ### RAG-Powered Labor Market Analytics Chatbot
 
-> Built at **HBKU (Hamad Bin Khalifa University)** · Data source: **Bayt.com** · Internship Project 2026
+> Built at **HBKU (Hamad Bin Khalifa University)** · Data sources: **Bayt.com + LinkedIn** · QCRI Internship 2026
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.57-red)](https://streamlit.io)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://python.org)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5.5-green)](https://www.trychroma.com)
+[![Qdrant](https://img.shields.io/badge/Vector_DB-Qdrant_Cloud-red)](https://qdrant.tech)
 [![Fanar](https://img.shields.io/badge/LLM-Fanar%20%7C%20OpenAI-purple)](https://api.fanar.qa)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js-black)](https://nextjs.org)
 
 ---
 
 ## What This System Does
 
-A conversational AI assistant that answers natural language questions about the Gulf job market using **real data scraped from Bayt.com**. It combines semantic search, SQL analytics, and large language models to give accurate, data-grounded answers.
+A conversational AI assistant that answers natural language questions about the Gulf job market using **real data scraped from Bayt.com and LinkedIn**. It combines semantic search, SQL analytics, and large language models to give accurate, data-grounded answers — in both **English and Arabic**.
 
 **Example questions it can answer:**
 - *"What is the average salary for a Data Analyst in Qatar?"*
@@ -20,33 +20,41 @@ A conversational AI assistant that answers natural language questions about the 
 - *"I'm a fresh AI graduate — which companies should I apply to and what skills do I need?"*
 - *"Compare Qatar vs UAE construction job market"*
 - *"What are the top in-demand skills across the GCC?"*
-
----
-
-## Live Demo
-
-🔗 **[jobmarketbot.streamlit.app](https://jobmarketbot.streamlit.app)**
+- *"ما هي المهارات المطلوبة لوظائف البرمجة في الإمارات؟"* (Arabic supported)
 
 ---
 
 ## Dataset
 
+### Bayt.com (English + Arabic)
+
 | File | Country | Date | Postings |
 |---|---|---|---|
-| `bayt_jobs_Qatar_22_Nov_2025.xlsx` | Qatar | Nov 2025 | 1,880 |
-| `bayt_jobs_Qatar_22_Feb_2026.xlsx` | Qatar | Feb 2026 | 3,544 |
 | `bayt_jobs_Qatar_12_May_2026.xlsx` | Qatar | May 2026 | 2,376 |
+| `bayt_jobs_Qatar_AR_12_May_2026.xlsx` | Qatar | May 2026 | 2,318 (Arabic portal) |
 | `bayt_jobs_Saudi_Arabia_12_May_2026.xlsx` | Saudi Arabia | May 2026 | 8,236 |
+| `bayt_jobs_Saudi_Arabia_AR_12_May_2026.xlsx` | Saudi Arabia | May 2026 | Arabic portal |
 | `bayt_jobs_UAE_12_May_2026.xlsx` | UAE | May 2026 | 9,923 |
+| `bayt_jobs_UAE_AR_12_May_2026.xlsx` | UAE | May 2026 | Arabic portal |
 
-**Total: ~25,959 job postings** across 3 GCC countries and 3 time periods.
+### LinkedIn (LLM-Enriched)
 
-Each posting contains 19 structured fields: Job Title, Company, Sector, Location, Salary, Employment Type, Career Level, Experience Required, Education Level, Skills, Qualifications, Language Requirements, Gender, and more.
+| File | Country | Date |
+|---|---|---|
+| `linkedin_Jobs_Qatar_7_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | Qatar | Jun 2026 |
+| `linkedin_jobs_Qatar_1_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | Qatar | Jun 2026 |
+| `linkedin_Jobs_Saudi_Arabia_7_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | Saudi Arabia | Jun 2026 |
+| `linkedin_jobs_Saudi_Arabia_1_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | Saudi Arabia | Jun 2026 |
+| `linkedin_Jobs_UAE_1_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | UAE | Jun 2026 |
+| `linkedin_jobs_UAE_7_June_2026_LLM_Enriched_22_Jun_2026.xlsx` | UAE | Jun 2026 |
 
-**Naming convention** (drop any new file following this format — system picks it up automatically):
+**Total: ~30,795 job postings** across 3 GCC countries, 2 sources, 2 time periods. LinkedIn scrapes are automatically deduplicated by Job ID.
+
+**Naming conventions (drop any new file — system picks it up automatically):**
 ```
 bayt_jobs_{Country}_{DD}_{Mon}_{YYYY}.xlsx
-bayt_jobs_{Country}_AR_{DD}_{Mon}_{YYYY}.xlsx   ← Arabic portal version (optional)
+bayt_jobs_{Country}_AR_{DD}_{Mon}_{YYYY}.xlsx     ← Arabic portal (optional, same jobs)
+linkedin_jobs_{Country}_{DD}_{Mon}_{YYYY}_*.xlsx  ← LinkedIn (any suffix after date)
 ```
 
 ---
@@ -56,33 +64,45 @@ bayt_jobs_{Country}_AR_{DD}_{Mon}_{YYYY}.xlsx   ← Arabic portal version (optio
 ```
 GCC-Job-Market-RAG/
 │
-├── 📄 app.py                  Main Streamlit application (Dashboard + Chat UI)
-├── 📄 config.py               Global settings, API keys, model routing
-├── 📄 data_loader.py          Data ingestion, normalisation, country/timeline parsing
-├── 📄 analytics.py            Pandas statistics engine (salary, skills, sectors, trends)
+├── 📄 server.py               FastAPI backend — all /api/* endpoints
+├── 📄 rag_engine.py           Core RAG pipeline (HyST-inspired, 3-layer retrieval)
+├── 📄 data_loader.py          Data ingestion, normalisation, Bayt+LinkedIn parsing
+├── 📄 vector_store.py         Qdrant Cloud wrapper (multilingual semantic indexing)
+├── 📄 analytics.py            Pandas statistics engine (salary, skills, sectors)
 ├── 📄 sql_engine.py           Text-to-SQL layer (structured/counting queries)
-├── 📄 vector_store.py         ChromaDB wrapper (semantic indexing + search)
-├── 📄 rag_engine.py           Core RAG pipeline orchestrator (HyST-inspired)
+├── 📄 config.py               Global settings, API keys, model routing
+├── 📄 app.py                  Streamlit UI (legacy dashboard — still functional)
 ├── 📄 build_index.py          Offline index builder (run before deploying)
+├── 📄 evaluate_mcq.py         MCQ benchmark runner (EN + AR accuracy evaluation)
+├── 📄 summarize_results.py    Turns benchmark JSON → Excel + text scorecard
+├── 📄 generate_benchmark.py   Generates open-ended QA benchmark from data
+├── 📄 generate_mcq_from_source.py  Generates MCQ benchmark from raw job data
 ├── 📄 requirements.txt        Python dependencies
 │
-├── 📁 data/                   Job posting Excel files (tracked via Git LFS)
-│   ├── bayt_jobs_Qatar_22_Nov_2025.xlsx
-│   ├── bayt_jobs_Qatar_22_Feb_2026.xlsx
-│   ├── bayt_jobs_Qatar_12_May_2026.xlsx
-│   ├── bayt_jobs_Saudi_Arabia_12_May_2026.xlsx
-│   └── bayt_jobs_UAE_12_May_2026.xlsx
+├── 📁 frontend/               Next.js web application (primary UI)
+│   ├── app/                   Next.js App Router pages
+│   ├── components/            React components (Chat, Dashboard, Sidebar)
+│   └── lib/                   API client, types
 │
-├── 📁 chroma_db/              Pre-built vector index (tracked via Git LFS)
-│   ├── chroma.sqlite3         Main ChromaDB database (~170MB, in LFS)
-│   ├── {collection-id}/       HNSW vector index files
-│   └── _manifest.json         Tracks which files are indexed (by filename hash)
+├── 📁 data/                   Job posting Excel files
+│   ├── bayt_jobs_*.xlsx       Bayt.com English postings
+│   ├── bayt_jobs_*_AR_*.xlsx  Bayt.com Arabic portal (merged by Job_ID)
+│   └── linkedin_jobs_*.xlsx   LinkedIn postings (LLM-enriched metadata)
 │
-├── 📁 .streamlit/
-│   └── secrets.toml.example  Template for API keys on Streamlit Cloud
+├── 📁 chroma_db/
+│   └── _manifest.json         Tracks which files are indexed (filename hash)
 │
-├── .gitattributes             Git LFS tracking rules (*.sqlite3, *.bin)
-├── .gitignore                 Excludes .env, __pycache__, venv
+├── 📁 RAG_Benchmark/          MCQ evaluation benchmark (from mentor)
+│   ├── RAG_Benchmark_Jobs_GCC.xlsx          ~4,000 open-ended QAs
+│   ├── RAG_Benchmark_Jobs_GCC_MCQ.xlsx      Same questions in MCQ form
+│   └── RAG_MCQ_Jobs_GCC_FromSource.xlsx     Factual MCQs from raw job data
+│
+├── mcq_results.json           Latest benchmark run (raw per-question results)
+├── mcq_results.xlsx           Benchmark results — Summary + Per-Question sheets
+├── mcq_summary.txt            Copy-paste scorecard
+│
+├── .gitattributes             Git LFS rules
+├── .gitignore                 Excludes .env, __pycache__, venv, logs
 └── .env                       Local API keys (never committed)
 ```
 
@@ -96,27 +116,29 @@ GCC-Job-Market-RAG/
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         DATA PIPELINE (offline)                      │
 │                                                                       │
-│  Excel Files → data_loader.py → Normalisation → ChromaDB + SQLite   │
-│                (country, month)   (career, sector,  (vectors + rows) │
-│                                    employment type)                   │
+│  Bayt EN/AR + LinkedIn → data_loader.py → Normalisation → Qdrant    │
+│  (auto-detected by          (country,        (career, sector,        │
+│   filename pattern)          month, source)   employment type)        │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓ (pre-built, instant load)
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       QUERY PIPELINE (real-time)                     │
 │                                                                       │
+│  User selects datasets in sidebar (Bayt/LinkedIn, country, period)   │
+│       │                                                               │
 │  User Question                                                        │
 │       │                                                               │
 │       ▼                                                               │
-│  [1] Query Decomposer (gpt-4o-mini)                                  │
+│  [1] Query Decomposer (Fanar internal)                               │
 │       Extracts: country filter, job title, timeline, sector           │
 │       Classifies: ANALYTICAL / SEMANTIC / HYBRID                     │
 │       │                                                               │
 │       ├──────────────────────┬────────────────────────────┐          │
 │       ▼                      ▼                            ▼          │
-│  [2] SQL Layer          [3] Pandas Layer          [4] ChromaDB       │
-│   (gpt-4o-mini)          (analytics.py)           (semantic search)  │
-│   Counts, rankings,      Skills, salary,          Top-K similar      │
-│   comparisons            experience stats         job postings       │
+│  [2] SQL Layer          [3] Pandas Layer          [4] Qdrant         │
+│   (Fanar internal)       (analytics.py)       (multilingual semantic) │
+│   Counts, rankings,      Skills, salary,      Top-K similar postings │
+│   comparisons            experience stats     scoped to selection    │
 │       │                      │                            │          │
 │       └──────────────────────┴────────────────────────────┘          │
 │                              ▼                                        │
@@ -126,82 +148,71 @@ GCC-Job-Market-RAG/
 │                    [6] LLM Generation (Fanar-C-2-27B)                │
 │                    System prompt + context + user question            │
 │                              ▼                                        │
-│                    Streaming answer → Streamlit UI                    │
+│                    Streaming answer → Next.js UI                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### The 3-Layer Retrieval (HyST-Inspired)
 
-Inspired by the **HyST (2025)** paper on hybrid retrieval over semi-structured tabular data. Instead of keyword-based routing, the system uses intelligent query decomposition:
+Inspired by the **HyST (2025)** paper on hybrid retrieval over semi-structured tabular data:
 
 | Layer | Technology | Handles |
 |---|---|---|
-| **Layer 1 — SQL** | SQLite + GPT-4o-mini | Counts, rankings, averages, trend comparisons |
+| **Layer 1 — SQL** | SQLite + Fanar | Counts, rankings, averages, trend comparisons |
 | **Layer 2 — Pandas** | pandas + analytics.py | Skills frequency, salary parsing, experience distribution |
-| **Layer 3 — Semantic** | ChromaDB + all-MiniLM-L6-v2 | Job matching, descriptions, role-specific queries |
+| **Layer 3 — Semantic** | Qdrant + multilingual-MiniLM | Job matching, descriptions, role-specific queries (EN + AR) |
 
-**Example routing:**
-```
-"How many Full-Time jobs in Feb 2026?"
-    → ANALYTICAL → SQL layer → df[employment_norm=='Full-Time'][timeline=='Feb 2026'].count()
-    → Answer: 940 ✅
-
-"Find jobs matching my CV: 5 years Finance, SAP"
-    → SEMANTIC → ChromaDB → cosine similarity search → top 15 postings
-    → Answer: ranked job list with match analysis ✅
-
-"What salary do Data Analysts earn in Qatar?"
-    → HYBRID → both layers run → SQL gives stats, ChromaDB gives examples
-    → Answer: avg salary + relevant job postings ✅
-```
+All three layers are **scoped to the user's active dataset selection** — if you select only LinkedIn Qatar, the chatbot only retrieves from those postings.
 
 ---
 
 ## Key Features
 
-### 📊 Dashboard Tab
-- **KPI Cards** — Total postings, countries, companies, month-over-month growth, avg salary
-- **Dynamic Filters** — Country, Sector, Timeline (all derived from actual data, never hardcoded)
-- **Month Comparison** — Select any two periods to compare; auto-detects available timelines
-- **9 Chart Sections** — Postings by Sector, Salary Intelligence, Career Level, Employment Type, Top Skills, Experience & Workforce, Language & Location, Most Advertised Positions, Top Companies
-- **Supply-Demand Insights** — Auto-computed insight cards + AI narrative generator
-- **Country Comparison** — Auto-shows when multiple countries are loaded
+### 📊 Dashboard
+- **KPI Cards** — Total postings, countries, companies, avg salary
+- **Dynamic Filters** — Country, Sector, Timeline (derived from actual data)
+- **Dataset Selector** — Toggle Bayt / LinkedIn, any country, any period independently
+- **9 Chart Sections** — Postings by Sector, Salary, Career Level, Employment Type, Skills, Experience, Language, Locations, Top Companies
+- **Country Comparison** — Auto-shows when multiple countries selected
 
-### 💬 Chat Tab
-- **Natural language Q&A** — Ask anything about the GCC job market
-- **Streaming responses** — Token-by-token output like ChatGPT
-- **Retrieval Transparency Panel** — Shows query type detected, layers used, confidence scores for each retrieved document
-- **Answer Verification** — Cross-checks bot's numbers against pandas ground truth (✅ Match / ⚠️ Discrepancy)
-- **Chat History** — Last 3 turns used as context for follow-up questions
-- **Quick Question Buttons** — One-click sample questions in sidebar
-- **CV Matching** — Describe your background, get matched jobs + skill gap analysis
+### 💬 Chat (RAG)
+- **Natural language Q&A** in English and Arabic
+- **Dataset-scoped answers** — chatbot respects the same sidebar selection as the dashboard
+- **Streaming responses** — token-by-token output
+- **Retrieval Transparency Panel** — shows query type, layers used, semantic scores
+- **Chat History** — last 3 turns used as context for follow-ups
 
 ### 🗂️ Sidebar
-- **Dataset Dump Cards** — Toggle countries/periods on/off (auto-discovered from files)
-- **File Upload** — Drop new Excel file → instant dashboard + chat update
-- **Model Selector** — Switch between Fanar and OpenAI models per session
-- **Index Status** — Shows if index is up to date
+- **Source grouping** — datasets grouped as 📌 Bayt and 💼 LinkedIn
+- **Granular selection** — tick any combination of source/country/period
+- **Model selector** — switch between Fanar and OpenAI models per session
+
+---
+
+## Multilingual Support (English + Arabic)
+
+The system handles Arabic end-to-end:
+
+| Component | Arabic support |
+|---|---|
+| **Embedding model** | `paraphrase-multilingual-MiniLM-L12-v2` — same 384-dim space for EN + AR |
+| **Indexed documents** | Each posting includes its Arabic text (`Original_Page_Content`) from the AR portal file, merged by Job_ID |
+| **Vector search** | Arabic queries retrieve the correct Arabic/bilingual postings |
+| **LLM (Fanar)** | Fanar-C-2-27B is Gulf-region and Arabic-aware |
+| **Benchmark** | 82% Arabic accuracy vs 83% English (see Evaluation section) |
 
 ---
 
 ## LLM Architecture
 
-The system uses **two separate LLM roles**:
-
 ```
 Internal tasks (structured output required):
-  Query Decomposer    →  gpt-4o-mini  (OpenAI)  → JSON output
-  SQL Generator       →  gpt-4o-mini  (OpenAI)  → SQL query output
+  Query Decomposer    →  Fanar internal model  → JSON output
+  SQL Generator       →  Fanar internal model  → SQL query output
 
 User-facing answer:
   Final Generation    →  Fanar-C-2-27B (Fanar)  → Streaming answer
-  AI Insights         →  Fanar-C-2-27B (Fanar)  → Market narrative
 ```
-
-**Why two models?**
-- Internal steps need reliable structured output (JSON, SQL) → GPT-4o-mini is battle-tested
-- User-facing answers benefit from Fanar's Arabic/Gulf-region awareness
-- Users can switch the final answer model from the sidebar
 
 **Available models (user-selectable):**
 | Model | Provider | Best for |
@@ -211,64 +222,90 @@ User-facing answer:
 | Fanar-S-1-7B | Fanar (Qatar) | Fast responses |
 | GPT-4o | OpenAI | Highest quality, complex analysis |
 | GPT-4o Mini | OpenAI | Fast fallback |
-| GPT-3.5 Turbo | OpenAI | Fastest fallback |
 
 ---
 
 ## Embeddings & Vector Search
 
-**Model:** `sentence-transformers/all-MiniLM-L6-v2`
-- 384-dimensional dense vectors
-- ~90 MB model, runs locally (no API cost)
-- Optimised for semantic similarity of short texts
+**Model:** `paraphrase-multilingual-MiniLM-L12-v2`
+- 384-dimensional dense vectors (same dimension as all-MiniLM-L6-v2)
+- Supports 50+ languages including Arabic
+- Runs locally — no API cost
 
 **Document format** (what gets embedded per job posting):
 ```
 Country: Qatar
-Timeline: Feb 2026
+Timeline: May 2026
 Job Title: Senior Software Engineer
 Company: Qatar Foundation
 Sector: Technology
-Location: Doha, Qatar
-Career Level: Senior
-Experience: 5+ years
-Salary: 8000-12000 USD/month
-Skills: Python; Machine Learning; AWS; Docker; TensorFlow
+...
+Skills: Python; Machine Learning; AWS
 Description: We are looking for...
+النص الأصلي: نبحث عن مهندس برمجيات...   ← Arabic text merged from AR portal
 ```
 
-Country and Timeline are placed **first** in every document — this prevents the LLM from hallucinating wrong countries (e.g., "Riyadh, Qatar").
+**Vector DB:** Qdrant Cloud (replaces ChromaDB). Payload indexes on `_country`, `_timeline`, `_dump_id`, `_source` allow filtered semantic search.
 
-**Similarity scoring:**
+---
+
+## Evaluation / Benchmark
+
+The system was evaluated against a **multiple-choice benchmark** created from the same job data, covering both English and Arabic questions.
+
+### Results (200-question sample, May Bayt data)
+
 ```
-Confidence = 1 - cosine_distance
+Overall accuracy:  165/200 = 82.5%
 
-Score 0.90–1.00  ██████████  Very relevant
-Score 0.70–0.89  ████████░░  Relevant
-Score 0.50–0.69  █████░░░░░  Loosely related
-Score < 0.50     ██░░░░░░░░  Weak match
+By language:
+  English   83/100 = 83.0%
+  Arabic    82/100 = 82.0%   ← near-identical, multilingual index works
+
+By country:
+  Saudi Arabia   86.1%
+  UAE            84.1%
+  Qatar          76.3%
+```
+
+### Benchmark Files
+
+| File | Description | Questions |
+|---|---|---|
+| `RAG_Benchmark_Jobs_GCC.xlsx` | Open-ended QA (question + paragraph answer) | ~4,000 |
+| `RAG_Benchmark_Jobs_GCC_MCQ.xlsx` | Same questions as multiple choice (A/B/C/D) | ~4,000 |
+| `RAG_MCQ_Jobs_GCC_FromSource.xlsx` | Factual MCQs generated from raw job data | ~2,700 |
+
+### Running the Benchmark
+
+```bash
+# Quick sample (200 questions, ~30 min)
+python evaluate_mcq.py --sample 50 --out mcq_results.json
+
+# Full run (all usable questions, few hours)
+python evaluate_mcq.py --full --out mcq_results.json
+
+# Generate shareable Excel + text scorecard
+python summarize_results.py
 ```
 
 ---
 
 ## Data Normalisation
 
-Raw Bayt.com data has inconsistent field values. The system normalises using **substring matching** (not exact string match) to handle all variants:
+Raw Bayt.com data has inconsistent field values. The system normalises using **substring matching**:
 
 **Employment Type:**
 ```
-"Full-Time" / "full time" / "FULL-TIME" / "fulltime"  →  "Full-Time"
-"Contract" / "CONTRACT" / "contract-based"             →  "Contract"
+"Full-Time" / "full time" / "FULL-TIME"  →  "Full-Time"
+"Contract" / "contract-based"            →  "Contract"
 ```
 
 **Career Level:**
 ```
-"Mid-Level" / "متوسط الخبرة" / "Consultant" / "Intermediate"  →  "Mid-Level"
-"Management" / "Manager" / "Supervisory" / "إدارة"             →  "Manager"
-"Senior Consultant" / "Sr." / "Senior Associate"               →  "Senior"
+"Mid-Level" / "متوسط الخبرة" / "Consultant"  →  "Mid-Level"
+"Management" / "Manager" / "إدارة"           →  "Manager"
 ```
-
-This was the root cause of wrong answers in the original system — the bot said "66 Mid-Level jobs" when the dashboard showed 110, because it only matched the exact string "Mid-Level" and missed all Arabic/variant entries.
 
 ---
 
@@ -281,193 +318,103 @@ This was the root cause of wrong answers in the original system — the bot said
 git clone https://github.com/mhdfaizjabir/jobmarket_bot.git
 cd jobmarket_bot
 
-# 2. Install dependencies
-pip install -r requirements.txt
+# 2. Install Python dependencies
+pip install -r RAG/requirements.txt
 
-# 3. Create .env file
-echo "OPENAI_API_KEY=sk-..." > .env
-echo "FANAR_API_KEY=..." >> .env
+# 3. Create RAG/.env
+OPENAI_API_KEY=sk-...
+FANAR_API_KEY=...
+QDRANT_URL=https://your-cluster.qdrant.io
+QDRANT_API_KEY=...
 
-# 4. Build vector index (one-time, ~10 minutes)
+# 4. Build vector index (one-time, ~30 min for all data)
+cd RAG
 python build_index.py
 
-# 5. Run
-streamlit run app.py
+# 5a. Run backend
+uvicorn server:app --port 8000 --reload
+
+# 5b. Run frontend (separate terminal)
+cd ../frontend
+npm install
+npm run dev
+# Open http://localhost:3000
 ```
 
 ### Adding New Data
 
 ```bash
-# Drop new file in data/ folder following naming convention:
-# bayt_jobs_{Country}_{DD}_{Mon}_{YYYY}.xlsx
-
-# Incremental index — only embeds NEW file, not everything
+# Drop new file in RAG/data/ following naming convention
+# Incremental index — only embeds new/changed files
+cd RAG
 python build_index.py
 
-# Commit and push (LFS handles large files automatically)
-git add data/ chroma_db/
-git commit -m "Add UAE Mar 2027 data"
+git add data/ chroma_db/_manifest.json
+git commit -m "Add new data scrape"
 git push
 ```
-
-### Streamlit Cloud Deployment
-
-```
-1. Push repo to GitHub (includes pre-built chroma_db/ via Git LFS)
-2. Go to share.streamlit.io → New app
-3. Connect GitHub repo → main → app.py
-4. Add Secrets:
-     OPENAI_API_KEY = "sk-..."
-     FANAR_API_KEY  = "..."
-5. Deploy → instant startup (index pre-loaded from LFS)
-```
-
-**Why instant on Streamlit Cloud:** The `chroma_db/` folder (pre-built vector index) is committed to GitHub via Git LFS. Streamlit Cloud downloads it on startup — no re-embedding needed. The manifest file tracks file hashes using filenames only (not absolute paths), so it works correctly across machines.
 
 ---
 
 ## File Modules — Detailed
 
 ### `config.py`
-Central configuration. Defines:
-- API keys (loaded from `.env`)
-- `CHAT_MODEL` — default LLM for final answers (Fanar-C-2-27B)
-- `INTERNAL_MODEL` — LLM for SQL/decomposition (gpt-4o-mini)
-- `make_client(model)` — routes to Fanar or OpenAI based on `"fanar/"` prefix
-- `build_system_prompt(countries, timelines, total)` — dynamic system prompt (never hardcoded months/countries)
-- Country flags, colors, available models
+- `CHAT_MODEL` / `INTERNAL_MODEL` — LLM routing
+- `EMBEDDING_MODEL` — `paraphrase-multilingual-MiniLM-L12-v2`
+- `COLUMN_ALIASES` — maps all raw column name variants to canonical names
+- `make_client(model)` — routes to Fanar or OpenAI
 
 ### `data_loader.py`
-- `load_all(data_dir)` — scans folder, loads all EN Excel files
-- `parse_file_info(path)` — extracts country + timeline from filename
-- `sort_timelines(list)` — chronological sort (not alphabetical)
-- `norm_employment(val)` — substring normalisation for employment type
-- `norm_career(val)` — substring normalisation for career level
-- AR file merging — if Arabic portal file exists, extracts language/nationalization/remote signals
-
-### `analytics.py`
-Pure pandas. No LLM. All methods degrade gracefully if columns are missing.
-- `AnalyticsEngine(df)` — wraps a filtered DataFrame
-- `sector_stats()`, `skill_stats()`, `salary_stats()` — formatted text blocks for LLM context
-- `career_level_stats()`, `employment_type_stats()` — use normalised columns
-- `trend_comparison()` — month-over-month analysis
-
-### `sql_engine.py`
-- `SQLEngine(df)` — loads DataFrame into in-memory SQLite
-- `_build_system(df)` — builds schema prompt dynamically (real timelines, countries, row counts)
-- `get_context(question)` — generates SQL via gpt-4o-mini → runs it → returns formatted result
-- Falls back to `""` silently if SQL generation fails
+- `load_all(data_dir)` — scans folder, loads Bayt EN + LinkedIn files; merges Bayt AR by Job_ID
+- `parse_file_info(path)` — extracts country, timeline, source (Bayt/LinkedIn), is_ar from filename
+- Deduplicates overlapping LinkedIn scrapes by (dump_id, job_id)
+- Tags each row with `_source` ("Bayt" or "LinkedIn")
 
 ### `vector_store.py`
-- `VectorStore()` — wraps ChromaDB persistent client
-- `build_index(df, files)` — full rebuild (use when doc format changes)
+- `VectorStore()` — wraps Qdrant Cloud REST client
+- `build_index(df, files)` — full rebuild (deletes collection, re-embeds everything)
 - `build_index_incremental(df, files)` — only embeds new/changed files
-- `needs_indexing(files)` — checks manifest version + file hashes
-- `search(query, n, where)` — semantic search with optional metadata filter
-- Manifest uses **filename keys** (not full paths) → works on any OS
+- `search(query, n, where)` — multilingual semantic search with metadata filter
+- Supports `$eq` and `$in` filter operators
 
 ### `rag_engine.py`
-The brain. HyST-inspired pipeline:
-1. `_decompose(question)` — LLM extracts filters + query type + analysis types
-2. `_apply_filters(df, filters)` — applies structured filters including soft job_title matching
-3. `_build_full_context(question)` — runs all 3 layers, assembles context
-4. `answer(question, model)` — streams final LLM response
-5. `get_retrieval_info(question)` — returns transparency data (layers used, scores)
+HyST-inspired pipeline:
+1. `_prepare(question, dump_ids)` — decompose + SQL, run once, carry `dump_ids` through
+2. `_build_full_context()` — runs all 3 layers, scoped to selected datasets
+3. `answer(question, dump_ids)` — streams final LLM response
+4. `get_retrieval_info()` — returns transparency data (layers used, scores)
 
-### `build_index.py`
-CLI script for offline index building. Run separately from the app.
-```
-python build_index.py          # incremental (new files only)
-python build_index.py --full   # full rebuild (after format changes)
-```
+### `server.py`
+FastAPI backend:
+- `GET /api/datasets` — all dataset dumps with counts, timelines, sources
+- `GET /api/dashboard` — all chart data for selected dump_ids
+- `POST /api/chat` — streaming SSE chat with dataset scoping
+- `POST /api/session` — session management
 
-### `app.py`
-Streamlit UI. Two tabs:
-- **Dashboard** — 9 chart sections, all filter-responsive, supply-demand insights
-- **Chat** — streaming Q&A, retrieval transparency, answer verification
-Sidebar: dump cards, file upload, index status, model selector.
-
----
-
-## Answer Verification System
-
-After every LLM response, the system cross-checks numbers against pandas:
-
-```
-Bot says: "There are 940 Full-Time jobs in Feb 2026"
-              ↓
-Verifier: df[emp_norm=='Full-Time'][timeline=='Feb 2026'].count() = 940
-              ↓
-✅ Match  →  shown to user with green check
-
-Bot says: "There are 1,200 Full-Time jobs in Feb 2026"
-              ↓
-Verifier: actual = 940
-              ↓
-⚠️ Discrepancy  →  shown with orange warning
-```
-
-Only checks numbers the bot explicitly mentions next to known labels (employment type, total postings). Correctly handles subset counts (e.g., "based on 34 IT postings") without false alarms.
-
----
-
-## Retrieval Transparency
-
-Every chat response shows an expandable panel:
-
-```
-🔍 Retrieval Process
-─────────────────────────────────────────
-Query Type:    HYBRID
-Filters:       _country=Qatar, job_title=data analyst
-Analysis:      salary, skills
-
-Layers used:   SQL / Pandas, ChromaDB (semantic search)
-
-Top 8 semantic matches:
-  0.91 ██████████  Data Analyst · QNBFS · Feb 2026
-  0.87 █████████░  Senior Data Analyst · Qatar Foundation · Nov 2025
-  0.84 ████████░░  Business Intelligence Analyst · Ooredoo · May 2026
-  ...
-
-SQL result preview:
-  SELECT AVG(_sal_mid) FROM jobs WHERE _country='Qatar'
-  AND LOWER(job_title) LIKE '%data analyst%'
-  → $3,200/month (n=12)
-```
-
----
-
-## GCC Context the System Knows
-
-- Qatar, UAE, Saudi Arabia job market dynamics
-- Qatarization / Emiratization / Saudization policies
-- Qatar Vision 2030, Saudi Vision 2030
-- GCC salary norms and transparency issues (~7% of postings show salary)
-- Common employers: Qatar Energy, Qatar Foundation, Aramco, ADNOC, GEMS
-- Language dynamics: Arabic/English requirements by sector
-- Expat workforce dominance in Qatar and UAE
+### `evaluate_mcq.py`
+- Loads benchmark xlsx, filters to rows whose source files are present in `data/`
+- Sends each MCQ to the RAG, parses letter answer (A/B/C/D), checks against correct answer
+- Reports accuracy by language, benchmark file, country
+- `--sample N` for quick runs, `--full` for complete evaluation
 
 ---
 
 ## Known Limitations
 
-1. **Salary data is sparse** — only ~7% of postings on Bayt.com disclose salary. All salary stats are based on this subset.
-2. **Data is a snapshot** — postings scraped at a specific date. Job market changes daily.
-3. **Bayt.com coverage** — only covers jobs posted on Bayt.com, not the full GCC market.
-4. **Arabic content** — bilingual signal extraction (nationalization %, remote work %) requires the corresponding `_AR_` file to be present.
+1. **Salary data is sparse** — only ~7% of postings disclose salary. All salary stats are based on this subset.
+2. **Data is a snapshot** — postings scraped at specific dates. Job market changes daily.
+3. **Source coverage** — covers Bayt.com and LinkedIn only, not the full GCC market.
+4. **Arabic bilingual enrichment** — requires the corresponding `_AR_` file to be present for each Bayt EN file. LinkedIn has no Arabic portal equivalent.
 
 ---
 
 ## Research Foundation
 
-This system draws on the following academic work:
-
-| Paper | Contribution to this system |
+| Paper | Contribution |
 |---|---|
-| **HyST (2025)** — Hybrid Retrieval over Semi-Structured Tabular Data | Query decomposition into SQL + semantic layers rather than keyword routing |
-| **NLP-based Job Market Analysis** | Skill extraction, sector classification methodology |
-| **LLM Skill Extraction** | Structured extraction of skills from unstructured job descriptions |
+| **HyST (2025)** — Hybrid Retrieval over Semi-Structured Tabular Data | Query decomposition into SQL + semantic layers |
+| **NLP-based Job Market Analysis** | Skill extraction, sector classification |
+| **LLM Skill Extraction** | Structured extraction from unstructured job descriptions |
 
 ---
 
@@ -475,16 +422,13 @@ This system draws on the following academic work:
 
 | Role | Contributor |
 |---|---|
-| RAG System, Pipeline, UI | Mohammad Faiz Jabir |
+| RAG System, Pipeline, UI, Evaluation | Mohammad Faiz Jabir |
 | Data Collection & Preprocessing | Albaraa |
+| Benchmark Design & Validation | Mentor / Supervisor |
 | Supervision | Dr. Hamdy |
 
 **Institution:** Hamad Bin Khalifa University (HBKU) — QCRI Internship 2026
 
 ---
 
-## Repository
-
 🔗 **GitHub:** [github.com/mhdfaizjabir/jobmarket_bot](https://github.com/mhdfaizjabir/jobmarket_bot)
-
-Data files and pre-built ChromaDB index are stored via **Git LFS** (Large File Storage) — no waiting for index build on deployment.
