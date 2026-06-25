@@ -1073,12 +1073,13 @@ def _chat(filt_df: pd.DataFrame, engine: RAGEngine, selected_model: str):
             for m in st.session_state.messages[:-1]
         ]
         with st.spinner("Searching database…"):
-            ret_info = engine.get_retrieval_info(prompt, history)
+            prepared = engine._prepare(prompt, history)
+            ret_info = engine.get_retrieval_info(prompt, history, prepared=prepared)
 
         with st.chat_message("assistant"):
             _render_retrieval_panel(ret_info)
             response_text = st.write_stream(
-                engine.answer(prompt, history, model=selected_model)
+                engine.answer(prompt, history, model=selected_model, prepared=prepared)
             )
             checks = _verify(response_text, filt_df)
             if checks:

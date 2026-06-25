@@ -220,6 +220,7 @@ async def _sse_stream(
     history: list[dict],
     model: str,
     dump_ids: list[str] | None = None,
+    prepared: dict | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Run the sync RAGEngine.answer() generator in a thread and yield SSE token events.
@@ -230,7 +231,7 @@ async def _sse_stream(
 
     def _run():
         try:
-            for token in engine.answer(question, history, model=model, dump_ids=dump_ids):
+            for token in engine.answer(question, history, model=model, dump_ids=dump_ids, prepared=prepared):
                 loop.call_soon_threadsafe(q.put_nowait, token)
         except Exception as e:
             loop.call_soon_threadsafe(q.put_nowait, f"\n\n[Error: {e}]")
@@ -286,14 +287,18 @@ def get_datasets():
     if "_dump_id" not in df.columns:
         return {"dumps": []}
 
+    group_cols = ["_dump_id", "_country", "_timeline", "_dump_label"]
+    if "_source" in df.columns:
+        group_cols.append("_source")
     groups = (
-        df.groupby(["_dump_id", "_country", "_timeline", "_dump_label"])
+        df.groupby(group_cols)
         .size()
         .reset_index(name="count")
     )
     dumps = groups.to_dict("records")
-    dumps.sort(key=lambda d: (d["_country"], d["_timeline"]))
-    return {"dumps": dumps, "timelines": _state["timelines"]}
+    dumps.sort(key=lambda d: (d.get("_source", ""), d["_country"], d["_timeline"]))
+    sources = sorted(df["_source"].dropna().unique().tolist()) if "_source" in df.columns else []
+    return {"dumps": dumps, "timelines": _state["timelines"], "sources": sources}
 
 
 @app.get("/api/models")
@@ -566,9 +571,19 @@ async def chat(request: Request, body: ChatRequest):
     async def event_stream():
         loop = asyncio.get_running_loop()
 
-        # Step 1: retrieval info as the very first event (decomposition + semantic hits)
+        # Step 1: decompose + SQL once, shared by the retrieval-info panel and
+        # the answer generator below — avoids redundant Fanar API calls.
+        def _prepare():
+            return engine._prepare(body.question, history, dump_ids=dump_ids)
+
+        try:
+            prepared = await loop.run_in_executor(None, _prepare)
+        except Exception:
+            prepared = None
+
+        # Step 2: retrieval info as the very first event (decomposition + semantic hits)
         def _get_ret():
-            return engine.get_retrieval_info(body.question, history, dump_ids=dump_ids)
+            return engine.get_retrieval_info(body.question, history, dump_ids=dump_ids, prepared=prepared)
 
         try:
             ret_info = await loop.run_in_executor(None, _get_ret)
@@ -576,9 +591,9 @@ async def chat(request: Request, body: ChatRequest):
         except Exception:
             pass
 
-        # Step 2: stream answer tokens
+        # Step 3: stream answer tokens
         full_response: list[str] = []
-        async for event in _sse_stream(engine, body.question, history, model, dump_ids=dump_ids):
+        async for event in _sse_stream(engine, body.question, history, model, dump_ids=dump_ids, prepared=prepared):
             yield event
             if event.startswith("data: ") and '"token"' in event:
                 try:

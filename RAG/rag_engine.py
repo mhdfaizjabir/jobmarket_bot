@@ -879,26 +879,35 @@ class RAGEngine:
         re.IGNORECASE,
     )
 
-    def _build_full_context(
+    # ── Step 1+2: decompose + SQL, run ONCE per request ─────────────────────────
+
+    def _prepare(
         self,
         question: str,
         chat_history: list[dict] | None = None,
         dump_ids: list[str] | None = None,
-    ) -> str:
-        df       = self.analytics.df
-        countries = sorted(df["_country"].dropna().unique().tolist()) \
-                    if "_country" in df.columns else []
+    ) -> dict:
+        """
+        Run question decomposition and (if needed) SQL generation exactly once.
 
-        decomposed     = self._normalize_decomposed(question, chat_history)
+        The result is shared across get_retrieval_info() and answer() (and the
+        context-building inside answer()) — previously each of those called the
+        decomposer independently (3x) and SQL generation independently (2x) for
+        the same question, tripling/doubling LLM calls for no benefit.
+        """
+        decomposed = self._normalize_decomposed(question, chat_history)
 
         if decomposed.get("_chitchat"):
-            return (
-                "CONVERSATIONAL MESSAGE — no data retrieval needed. Respond briefly and "
-                "naturally, like a normal assistant. If asked what you can do, briefly "
-                "mention you can answer questions about the GCC job market: posting "
-                "counts, salaries, in-demand skills, top companies/sectors, and trends "
-                "across Qatar, UAE, and Saudi Arabia."
-            )
+            return {
+                "decomposed":     decomposed,
+                "filters":        {},
+                "needs_agg":      False,
+                "analysis_types": [],
+                "resolved_q":     decomposed.get("resolved_question") or question,
+                "semantic_q":     "",
+                "sql_ctx":        "",
+                "sql_ran":        False,
+            }
 
         filters        = decomposed.get("filters", {})
         needs_agg      = decomposed.get("needs_aggregation", False)
@@ -913,7 +922,97 @@ class RAGEngine:
         # Always use resolved_q for vector search — it is self-contained and
         # carries full conversation context (roles, domain, country) so
         # follow-ups like "what about in Saudi?" don't lose the DS/AI topic.
-        semantic_q     = resolved_q
+        semantic_q = resolved_q
+
+        # SQL: aggregation, rankings, trend comparisons
+        sql_ran = False
+        sql_ctx = ""
+        if needs_agg:
+            # Build a precise SQL question so the LLM generates the right aggregation.
+            # For company questions, explicitly ask for company ranking so SQL engine
+            # generates GROUP BY company ORDER BY COUNT(*) instead of SELECT *.
+            sql_question = resolved_q
+            if "salary" in analysis_types and "job_title" in filters:
+                job_titles = filters["job_title"]
+                country = filters.get("_country")
+                scope = f" in {country}" if country else ""
+                sql_question = (
+                    f"Return only job_title and salary columns for the following job titles{scope}: {job_titles}. "
+                    "Do not aggregate by career level or career grade. "
+                    "Do not include full job descriptions or other unrelated columns. "
+                    "If no exact job_title salary rows exist, return no matching records."
+                )
+            elif "companies" in analysis_types and "top companies" not in sql_question.lower():
+                sql_question = f"Top companies by number of job postings — {resolved_q}"
+            # Append country to the SQL question if not already present —
+            # ensures the SQL engine always scopes to the right country
+            if "_country" in filters and "salary" not in analysis_types:
+                country = filters["_country"]
+                if country.lower() not in sql_question.lower():
+                    sql_question = f"{sql_question} (country: {country})"
+            # Pass dump_ids so SQL operates on the same dump scope as the UI
+            sql_ctx = self.sql.get_context(sql_question, dump_ids=dump_ids)
+            if sql_ctx and "No matching records" not in sql_ctx:
+                if "salary" in analysis_types and "job_title" in filters:
+                    numeric_values = re.findall(r"\$?\d{3,}(?:,\d{3})*", sql_ctx)
+                    if not numeric_values:
+                        sql_ctx = ""
+                # If the SQL result is only career-level averages for a job_title salary query,
+                # hide it to avoid misleading role-level salary claims.
+                if sql_ctx and (
+                    "salary" in analysis_types
+                    and "job_title" in filters
+                    and "_career_norm" in sql_ctx
+                    and "job_title" not in sql_ctx
+                ):
+                    sql_ctx = ""
+                if sql_ctx:
+                    sql_ran = True
+
+        return {
+            "decomposed":     decomposed,
+            "filters":        filters,
+            "needs_agg":      needs_agg,
+            "analysis_types": analysis_types,
+            "resolved_q":     resolved_q,
+            "semantic_q":     semantic_q,
+            "sql_ctx":        sql_ctx,
+            "sql_ran":        sql_ran,
+            "dump_ids":       dump_ids,   # carry through so vector search can scope to selected datasets
+        }
+
+    def _build_full_context(
+        self,
+        question: str,
+        chat_history: list[dict] | None = None,
+        dump_ids: list[str] | None = None,
+        prepared: dict | None = None,
+    ) -> str:
+        df       = self.analytics.df
+        countries = sorted(df["_country"].dropna().unique().tolist()) \
+                    if "_country" in df.columns else []
+
+        if prepared is None:
+            prepared = self._prepare(question, chat_history, dump_ids)
+        decomposed = prepared["decomposed"]
+
+        if decomposed.get("_chitchat"):
+            return (
+                "CONVERSATIONAL MESSAGE — no data retrieval needed. Respond briefly and "
+                "naturally, like a normal assistant. If asked what you can do, briefly "
+                "mention you can answer questions about the GCC job market: posting "
+                "counts, salaries, in-demand skills, top companies/sectors, and trends "
+                "across Qatar, UAE, and Saudi Arabia."
+            )
+
+        filters        = prepared["filters"]
+        needs_agg      = prepared["needs_agg"]
+        analysis_types = prepared["analysis_types"]
+        resolved_q     = prepared["resolved_q"]
+        # Always use resolved_q for vector search — it is self-contained and
+        # carries full conversation context (roles, domain, country) so
+        # follow-ups like "what about in Saudi?" don't lose the DS/AI topic.
+        semantic_q     = prepared["semantic_q"]
 
         # Restrict the analytics base to the dumps the user has selected in the UI,
         # ensuring chatbot numbers always match the dashboard for the same selection.
@@ -976,50 +1075,10 @@ class RAGEngine:
                             "scope. State this plainly rather than inventing roles or statistics."
                         )
 
-        # Step 2 — SQL: aggregation, rankings, trend comparisons
-        sql_ran = False
-        sql_ctx = ""
-        if needs_agg:
-            # Build a precise SQL question so the LLM generates the right aggregation.
-            # For company questions, explicitly ask for company ranking so SQL engine
-            # generates GROUP BY company ORDER BY COUNT(*) instead of SELECT *.
-            sql_question = resolved_q
-            if "salary" in analysis_types and "job_title" in filters:
-                job_titles = filters["job_title"]
-                country = filters.get("_country")
-                scope = f" in {country}" if country else ""
-                sql_question = (
-                    f"Return only job_title and salary columns for the following job titles{scope}: {job_titles}. "
-                    "Do not aggregate by career level or career grade. "
-                    "Do not include full job descriptions or other unrelated columns. "
-                    "If no exact job_title salary rows exist, return no matching records."
-                )
-            elif "companies" in analysis_types and "top companies" not in sql_question.lower():
-                sql_question = f"Top companies by number of job postings — {resolved_q}"
-            # Append country to the SQL question if not already present —
-            # ensures the SQL engine always scopes to the right country
-            if "_country" in filters and "salary" not in analysis_types:
-                country = filters["_country"]
-                if country.lower() not in sql_question.lower():
-                    sql_question = f"{sql_question} (country: {country})"
-            # Pass dump_ids so SQL operates on the same dump scope as the UI
-            sql_ctx = self.sql.get_context(sql_question, dump_ids=dump_ids)
-            if sql_ctx and "No matching records" not in sql_ctx:
-                if "salary" in analysis_types and "job_title" in filters:
-                    numeric_values = re.findall(r"\$?\d{3,}(?:,\d{3})*", sql_ctx)
-                    if not numeric_values:
-                        sql_ctx = ""
-                # If the SQL result is only career-level averages for a job_title salary query,
-                # hide it to avoid misleading role-level salary claims.
-                if sql_ctx and (
-                    "salary" in analysis_types
-                    and "job_title" in filters
-                    and "_career_norm" in sql_ctx
-                    and "job_title" not in sql_ctx
-                ):
-                    sql_ctx = ""
-                if sql_ctx:
-                    sql_ran = True
+        # Step 2 — SQL analytics: computed once in _prepare() and shared with
+        # get_retrieval_info() / answer() to avoid redundant LLM calls.
+        sql_ctx = prepared["sql_ctx"]
+        sql_ran = prepared["sql_ran"]
 
         # Step 3 — Pandas: skills & salary on the FILTERED subset
         # When SQL already ran, skip analytics that SQL handles better
@@ -1073,6 +1132,20 @@ class RAGEngine:
         _semantic_companies: set[str] = set()
         if self.vs.has_vectors():
             chroma_where = _to_chroma_where(filters)
+
+            # Restrict vector search to the datasets selected in the sidebar.
+            # This makes the RAG chatbot consistent with the dashboard — if the
+            # user selected only LinkedIn Qatar, the chatbot only retrieves from
+            # those postings, not the whole corpus.
+            active_dump_ids = prepared.get("dump_ids") if prepared else dump_ids
+            if active_dump_ids:
+                dump_filter = {"_dump_id": {"$in": active_dump_ids}}
+                chroma_where = (
+                    {"$and": [chroma_where, dump_filter]}
+                    if chroma_where
+                    else dump_filter
+                )
+
             try:
                 results = self.vs.search(
                     semantic_q,
@@ -1195,6 +1268,7 @@ class RAGEngine:
         chat_history: list[dict] | None = None,
         model: str | None = None,
         dump_ids: list[str] | None = None,
+        prepared: dict | None = None,
     ) -> Generator[str, None, None]:
         """
         Stream the answer token-by-token.
@@ -1205,8 +1279,14 @@ class RAGEngine:
         model    : override the default CHAT_MODEL for this call (from UI selector)
         dump_ids : restrict to the dumps selected in the sidebar — ensures chatbot
                    numbers match the dashboard for the same selection
+        prepared : pre-computed result of _prepare() — pass this in (e.g. shared
+                   with get_retrieval_info()) to avoid a redundant decompose/SQL
+                   LLM call for this question.
         """
-        context = self._build_full_context(question, chat_history, dump_ids=dump_ids)
+        if prepared is None:
+            prepared = self._prepare(question, chat_history, dump_ids)
+
+        context = self._build_full_context(question, chat_history, dump_ids=dump_ids, prepared=prepared)
 
         # Build system prompt from the dump-scoped df so total_postings matches the UI
         df = self.analytics.df
@@ -1234,8 +1314,7 @@ class RAGEngine:
         if chat_history:
             messages.extend(chat_history[-(_MAX_HISTORY_TURNS * 2):])
 
-        decomposed = self._normalize_decomposed(question, chat_history)
-        resolved_q = decomposed.get("resolved_question") or question
+        resolved_q = prepared["resolved_q"]
 
         messages.append({
             "role": "user",
@@ -1314,9 +1393,10 @@ class RAGEngine:
         Builds context once, runs answer(), then calls _verify().
         Used only by evaluate.py and temporary evaluation scripts.
         """
-        context     = self._build_full_context(question, chat_history)
+        prepared    = self._prepare(question, chat_history)
+        context     = self._build_full_context(question, chat_history, prepared=prepared)
         answer_text = "".join(
-            chunk for chunk in self.answer(question, chat_history=chat_history, model=model)
+            chunk for chunk in self.answer(question, chat_history=chat_history, model=model, prepared=prepared)
         )
         verification = self._verify(answer_text, context)
         return {
@@ -1335,16 +1415,22 @@ class RAGEngine:
         question: str,
         chat_history: list[dict] | None = None,
         dump_ids: list[str] | None = None,
+        prepared: dict | None = None,
     ) -> dict:
         """
         Return retrieval metadata for the transparency panel (no streaming).
         Shows: decomposition, which layers ran, semantic search scores.
+
+        prepared : pre-computed result of _prepare() — pass this in (e.g. shared
+                   with answer()) to avoid a redundant decompose/SQL LLM call.
         """
         df       = self.analytics.df
         countries = sorted(df["_country"].dropna().unique().tolist()) \
                     if "_country" in df.columns else []
 
-        decomposed     = self._normalize_decomposed(question, chat_history)
+        if prepared is None:
+            prepared = self._prepare(question, chat_history, dump_ids)
+        decomposed = prepared["decomposed"]
 
         if decomposed.get("_chitchat"):
             return {
@@ -1357,27 +1443,16 @@ class RAGEngine:
                 "semantic_hits":  [],
             }
 
-        filters        = decomposed.get("filters", {})
-        needs_agg      = decomposed.get("needs_aggregation", False)
-        analysis_types = decomposed.get("analysis_types", [])
-        resolved_q     = decomposed.get("resolved_question") or question
-        needs_agg, analysis_types = self._apply_analysis_forces(
-            question,
-            resolved_q,
-            analysis_types,
-            needs_agg,
-        )
-        semantic_q     = resolved_q
+        filters        = prepared["filters"]
+        needs_agg      = prepared["needs_agg"]
+        analysis_types = prepared["analysis_types"]
+        semantic_q     = prepared["semantic_q"]
 
         layers_used: list[str] = []
 
-        sql_result = ""
+        sql_result = prepared["sql_ctx"]
         if needs_agg:
             layers_used.append("SQL / Pandas")
-            sql_result = self.sql.get_context(
-                decomposed.get("resolved_question") or question,
-                dump_ids=dump_ids,
-            )
 
         semantic_hits: list[dict] = []
         if self.vs.has_vectors():

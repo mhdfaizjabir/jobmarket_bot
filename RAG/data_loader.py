@@ -173,59 +173,75 @@ def _remote_signal(text) -> bool:
 
 def parse_file_info(filepath: str | Path) -> dict:
     """
-    Parse a Bayt.com filename into metadata.
+    Parse a Bayt.com or LinkedIn filename into metadata.
 
     Accepted formats
     ----------------
-    bayt_jobs_{Country}_{Day}_{Month}_{Year}.xlsx       ← EN posting data
-    bayt_jobs_{Country}_AR_{Day}_{Month}_{Year}.xlsx    ← Arabic portal data
-    anything_else.xlsx                                  ← fallback (unknown country)
+    bayt_jobs_{Country}_{Day}_{Month}_{Year}.xlsx          ← Bayt EN posting data
+    bayt_jobs_{Country}_AR_{Day}_{Month}_{Year}.xlsx       ← Bayt Arabic portal data
+    linkedin_jobs_{Country}_{Day}_{Month}_{Year}_*.xlsx    ← LinkedIn (any trailing suffix)
+    anything_else.xlsx                                     ← fallback (unknown country)
 
     Returns
     -------
-    dict with keys: country, timeline, dump_id, dump_label, is_ar
+    dict with keys: country, timeline, dump_id, dump_label, is_ar, source
     """
-    stem = Path(filepath).stem
+    stem  = Path(filepath).stem
+    lower = stem.lower()
 
-    if not stem.lower().startswith("bayt_jobs_"):
+    # Detect source + strip its prefix
+    if lower.startswith("bayt_jobs_"):
+        source, rest = "Bayt", stem[len("bayt_jobs_"):]
+    elif lower.startswith("linkedin_jobs_"):
+        source, rest = "LinkedIn", stem[len("linkedin_jobs_"):]
+    else:
         # Legacy / unknown format — derive timeline from filename heuristically
         tl = _parse_timeline_fallback(stem)
         return {
             "country":    "Unknown",
             "timeline":   tl,
-            "dump_id":    re.sub(r"[^a-z0-9]", "_", stem.lower()),
+            "dump_id":    re.sub(r"[^a-z0-9]", "_", lower),
             "dump_label": stem,
             "is_ar":      False,
+            "source":     "Unknown",
         }
 
-    rest = stem[len("bayt_jobs_"):]
-
-    # Detect and strip AR flag
+    # Detect and strip AR flag (Bayt only; LinkedIn has no Arabic portal)
     is_ar = bool(re.search(r"_AR_", rest, re.IGNORECASE))
     if is_ar:
         rest = re.sub(r"_AR_", "_", rest, count=1, flags=re.IGNORECASE)
 
-    # Pattern: {Country_Words}_{1-2 digit day}_{3+ alpha month}_{4 digit year}
-    m = re.match(r"^(.+?)_(\d{1,2})_([A-Za-z]{3,9})_(\d{4})$", rest)
+    # Pattern: {Country_Words}_{day}_{month}_{year} — ignore any trailing suffix
+    # (LinkedIn files carry e.g. "_LLM_Enriched_22_Jun_2026" after the scrape date).
+    m = re.match(r"^(.+?)_(\d{1,2})_([A-Za-z]{3,9})_(\d{4})(?:_.*)?$", rest)
     if not m:
         tl = _parse_timeline_fallback(stem)
         return {
             "country":    "Unknown",
             "timeline":   tl,
-            "dump_id":    re.sub(r"[^a-z0-9]", "_", stem.lower()),
+            "dump_id":    re.sub(r"[^a-z0-9]", "_", lower),
             "dump_label": stem,
             "is_ar":      is_ar,
+            "source":     source,
         }
 
     country_raw = m.group(1)                                        # e.g. "Saudi_Arabia"
-    month_key   = m.group(3).lower()                               # e.g. "nov"
-    month_abbr  = _MONTH_MAP.get(month_key, m.group(3).capitalize())  # e.g. "Nov"
-    year        = m.group(4)                                        # e.g. "2025"
+    month_key   = m.group(3).lower()                               # e.g. "jun"
+    month_abbr  = _MONTH_MAP.get(month_key, m.group(3).capitalize())  # e.g. "Jun"
+    year        = m.group(4)                                        # e.g. "2026"
 
-    country    = country_raw.replace("_", " ")                     # "Saudi Arabia"
-    timeline   = f"{month_abbr} {year}"                            # "Nov 2025"
-    dump_id    = f"{country_raw.lower()}_{month_abbr.lower()}_{year}"  # "qatar_nov_2025"
-    dump_label = f"{country} {timeline}"                           # "Qatar Nov 2025"
+    country  = country_raw.replace("_", " ")                       # "Saudi Arabia"
+    timeline = f"{month_abbr} {year}"                              # "Jun 2026"
+
+    # Dump id groups all files of one (source, country, month). For LinkedIn this
+    # deliberately merges the 1-June and 7-June scrapes into a single dataset
+    # (duplicate job_ids are removed later in load_all).
+    if source == "LinkedIn":
+        dump_id    = f"{country_raw.lower()}_linkedin_{month_abbr.lower()}_{year}"
+        dump_label = f"{country} {timeline} (LinkedIn)"
+    else:
+        dump_id    = f"{country_raw.lower()}_{month_abbr.lower()}_{year}"
+        dump_label = f"{country} {timeline}"
 
     return {
         "country":    country,
@@ -233,6 +249,7 @@ def parse_file_info(filepath: str | Path) -> dict:
         "dump_id":    dump_id,
         "dump_label": dump_label,
         "is_ar":      is_ar,
+        "source":     source,
     }
 
 
@@ -352,6 +369,7 @@ def load_all(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, list[str]]:
         df["_dump_id"]    = info["dump_id"]
         df["_dump_label"] = info["dump_label"]
         df["_source_file"] = f.name
+        df["_source"]      = info["source"]   # "Bayt" | "LinkedIn"
 
         # Substring-normalised columns (fix for wrong-answer bug)
         if "employment_type" in df.columns:
@@ -402,9 +420,30 @@ def load_all(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, list[str]]:
         else:
             _add_empty_ar_cols(df)
 
+        # LinkedIn carries an explicit remote flag — use it directly (Bayt only
+        # has it via the AR portal signal, handled above).
+        if info["source"] == "LinkedIn":
+            remote_col = next((c for c in df.columns if c.lower() == "is_remote"), None)
+            if remote_col is not None:
+                df["_remote_signal"] = (
+                    df[remote_col].astype(str).str.strip().str.lower()
+                    .isin(["true", "1", "yes", "remote"])
+                )
+
         frames.append(df)
 
     merged = pd.concat(frames, ignore_index=True)
+
+    # Remove duplicate postings within a dataset. This collapses the overlapping
+    # LinkedIn 1-June / 7-June scrapes (merged into one dump_id) by job_id.
+    # Rows without a job_id are kept as-is (never treated as duplicates).
+    if "job_id" in merged.columns and "_dump_id" in merged.columns:
+        has_id = merged["job_id"].notna()
+        deduped = (merged[has_id]
+                   .drop_duplicates(subset=["_dump_id", "job_id"], keep="first"))
+        merged = (pd.concat([deduped, merged[~has_id]], ignore_index=True)
+                  .reset_index(drop=True))
+
     timelines = _sort_timelines(
         list({t for df in frames for t in df["_timeline"].dropna().unique()})
     )

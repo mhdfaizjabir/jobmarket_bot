@@ -1,0 +1,17 @@
+RAG MULTIPLE-CHOICE BENCHMARK — RESULTS
+==========================================
+Overall accuracy: 165/200 = 82.5%
+
+By language (English vs Arabic):
+   Arabic             82/100  = 82.0%
+   English            83/100  = 83.0%
+
+By benchmark file:
+   mcq                84/100  = 84.0%
+   source             81/100  = 81.0%
+
+By country:
+   Qatar              45/59   = 76.3%
+   Saudi Arabia       62/72   = 86.1%
+   UAE                58/69   = 84.1%
+

@@ -8,6 +8,11 @@ const COUNTRY_FLAGS: Record<string, string> = {
   Bahrain: '🇧🇭', Kuwait: '🇰🇼', Oman: '🇴🇲',
 };
 
+const SOURCE_ICONS: Record<string, string> = {
+  Bayt: '📌',
+  LinkedIn: '💼',
+};
+
 interface Props {
   dumps: DumpInfo[];
   timelines: string[];
@@ -26,10 +31,13 @@ export default function Sidebar({
   dumps, timelines, selected, model, models, isOpen,
   onToggle, onSelectAll, onClearAll, onModelChange, onCollapse,
 }: Props) {
-  const byCountry: Record<string, DumpInfo[]> = {};
+  // Group by source → country
+  const bySource: Record<string, Record<string, DumpInfo[]>> = {};
   for (const d of dumps) {
-    if (!byCountry[d._country]) byCountry[d._country] = [];
-    byCountry[d._country].push(d);
+    const src = d._source ?? 'Bayt';
+    if (!bySource[src]) bySource[src] = {};
+    if (!bySource[src][d._country]) bySource[src][d._country] = [];
+    bySource[src][d._country].push(d);
   }
 
   const totalJobs = dumps
@@ -96,27 +104,34 @@ export default function Sidebar({
           </button>
         </div>
 
-        {Object.entries(byCountry).sort().map(([country, cDumps]) => (
-          <div key={country} className="mb-3">
-            <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>
-              {COUNTRY_FLAGS[country] ?? '🌍'} {country}
+        {Object.entries(bySource).sort().map(([source, byCountry]) => (
+          <div key={source} className="mb-4">
+            <div className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: 'var(--text)' }}>
+              {SOURCE_ICONS[source] ?? '📂'} {source}
             </div>
-            {cDumps.sort((a, b) => a._timeline.localeCompare(b._timeline)).map(d => (
-              <label key={d._dump_id} className="flex items-start gap-2 mb-1.5 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(d._dump_id)}
-                  onChange={() => onToggle(d._dump_id)}
-                  className="accent-purple-500 mt-0.5"
-                />
-                <span className="text-xs leading-tight" style={{ color: 'var(--muted)' }}>
-                  <span className="group-hover:text-purple-400 transition" style={{ color: 'var(--text)' }}>
-                    {d._timeline}
-                  </span>
-                  <br />
-                  {d.count.toLocaleString()} jobs
-                </span>
-              </label>
+            {Object.entries(byCountry).sort().map(([country, cDumps]) => (
+              <div key={country} className="mb-2 pl-2">
+                <div className="text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
+                  {COUNTRY_FLAGS[country] ?? '🌍'} {country}
+                </div>
+                {cDumps.sort((a, b) => a._timeline.localeCompare(b._timeline)).map(d => (
+                  <label key={d._dump_id} className="flex items-start gap-2 mb-1.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(d._dump_id)}
+                      onChange={() => onToggle(d._dump_id)}
+                      className="accent-purple-500 mt-0.5"
+                    />
+                    <span className="text-xs leading-tight" style={{ color: 'var(--muted)' }}>
+                      <span className="group-hover:text-purple-400 transition" style={{ color: 'var(--text)' }}>
+                        {d._timeline}
+                      </span>
+                      <br />
+                      {d.count.toLocaleString()} jobs
+                    </span>
+                  </label>
+                ))}
+              </div>
             ))}
           </div>
         ))}
@@ -156,7 +171,7 @@ export default function Sidebar({
       <hr style={{ borderColor: 'var(--border)' }} />
 
       <div className="text-xs mt-auto pb-2" style={{ color: 'var(--muted)' }}>
-        Source: Bayt.com<br />
+        Sources: Bayt.com · LinkedIn<br />
         {timelines.join(' · ')}
       </div>
     </aside>

@@ -4,11 +4,13 @@ export interface DumpInfo {
   _timeline: string;
   _dump_label: string;
   count: number;
+  _source?: string;   // "Bayt" | "LinkedIn"
 }
 
 export interface DatasetsResponse {
   dumps: DumpInfo[];
   timelines: string[];
+  sources?: string[];
 }
 
 export interface DashboardData {

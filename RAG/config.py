@@ -35,7 +35,9 @@ CHAT_MODEL = "fanar/Fanar-C-2-27B"
 
 # Internal model used for SQL generation and query decomposition.
 INTERNAL_MODEL = "fanar/Fanar-C-2-27B"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+# Multilingual model (EN + AR) so Arabic postings embed meaningfully.
+# Same 384-dim output as all-MiniLM-L6-v2, so Qdrant vector size is unchanged.
+EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 # Retrieval
 TOP_K = 15

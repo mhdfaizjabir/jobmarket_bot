@@ -171,6 +171,7 @@ _META_COLS = [
     "job_title", "company", "category", "location",
     "career_level", "employment_type", "education",
     "salary", "_timeline", "_source_file", "_country",
+    "_source", "_dump_id",
 ]
 
 
@@ -189,6 +190,10 @@ def _build_doc_text(row: pd.Series) -> str:
         if desc_col in row.index and pd.notna(row[desc_col]):
             parts.append(f"Description: {str(row[desc_col])[:DESCRIPTION_TRUNCATE]}")
             break
+    # Arabic source text (merged from the AR portal file by job_id). Including it
+    # makes each posting bilingual so Arabic queries retrieve the right job.
+    if "_ar_content" in row.index and pd.notna(row["_ar_content"]) and str(row["_ar_content"]).strip():
+        parts.append(f"النص الأصلي: {str(row['_ar_content'])[:DESCRIPTION_TRUNCATE]}")
     return "\n".join(parts)
 
 
@@ -230,9 +235,11 @@ def _chroma_where_to_qdrant(where: dict | None) -> dict | None:
                 for sub in val:
                     conditions.extend(_parse(sub))
             elif isinstance(val, dict):
-                actual = val.get("$eq")
-                if actual is not None:
-                    conditions.append({"key": key, "match": {"value": actual}})
+                if "$eq" in val:
+                    conditions.append({"key": key, "match": {"value": val["$eq"]}})
+                elif "$in" in val:
+                    # Qdrant: match any value in a list
+                    conditions.append({"key": key, "match": {"any": val["$in"]}})
             else:
                 conditions.append({"key": key, "match": {"value": val}})
         return conditions
@@ -271,7 +278,7 @@ class VectorStore:
     def _ensure_payload_indexes(self):
         info = self._client.get_collection_info(QDRANT_COLLECTION)
         payload_schema = info.get("payload_schema", {}) or {}
-        for field in ("_country", "_timeline", "career_level"):
+        for field in ("_country", "_timeline", "career_level", "_dump_id", "_source"):
             if field in payload_schema:
                 continue
             try:
