@@ -26,7 +26,21 @@ npm install && npm run dev
 
 Open **http://localhost:3000**
 
-See [RAG/README.md](RAG/README.md) for full setup, architecture, and deployment docs.
+See [RAG/README.md](RAG/README.md) for full backend setup.
+
+---
+
+## Documentation
+
+| Document | Covers |
+|---|---|
+| [PROJECT_SPEC.md](PROJECT_SPEC.md) | Living spec + full sprint history (what shipped, when, why) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | How the system fits together — request/RAG/filter/SQL/Qdrant flows |
+| [API.md](API.md) | Every HTTP endpoint, request/response shapes, validation rules |
+| [SECURITY.md](SECURITY.md) | Threat model, implemented controls, pre-deploy checklist |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Local / Docker / production (nginx) deployment |
+| [OBSERVABILITY.md](OBSERVABILITY.md) | Prometheus metrics, Sentry/Langfuse activation |
+| [RUNBOOK.md](RUNBOOK.md) | Operational procedures (restart, reindex, incident response) |
 
 ---
 

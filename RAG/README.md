@@ -70,9 +70,15 @@ GCC-Job-Market-RAG/
 ├── 📄 vector_store.py         Qdrant Cloud wrapper (multilingual semantic indexing)
 ├── 📄 analytics.py            Pandas statistics engine (salary, skills, sectors)
 ├── 📄 sql_engine.py           Text-to-SQL layer (structured/counting queries)
-├── 📄 config.py               Global settings, API keys, model routing
+├── 📄 filter_registry.py      Single source of truth for explicit (UI-driven) filters
+├── 📄 security.py             Security policy (headers, body cap, input validation, CORS)
+├── 📄 observability.py        Prometheus metrics (+ dormant Sentry/Langfuse hooks)
+├── 📁 config/                 Config package: settings.py, llm.py, logging.py
+├── 📁 tests/                  pytest suite (registry, session, security, SQL, chat, live)
 ├── 📄 app.py                  Streamlit UI (legacy dashboard — still functional)
 ├── 📄 build_index.py          Offline index builder (run before deploying)
+├── 📄 migrate_sector_payload.py            One-off Qdrant payload backfill (Sprint 1)
+├── 📄 migrate_explicit_filters_payload.py  Generalized payload backfill (Sprint 8)
 ├── 📄 evaluate_mcq.py         MCQ benchmark runner (EN + AR accuracy evaluation)
 ├── 📄 summarize_results.py    Turns benchmark JSON → Excel + text scorecard
 ├── 📄 generate_benchmark.py   Generates open-ended QA benchmark from data
@@ -92,10 +98,9 @@ GCC-Job-Market-RAG/
 ├── 📁 chroma_db/
 │   └── _manifest.json         Tracks which files are indexed (filename hash)
 │
-├── 📁 RAG_Benchmark/          MCQ evaluation benchmark (from mentor)
-│   ├── RAG_Benchmark_Jobs_GCC.xlsx          ~4,000 open-ended QAs
-│   ├── RAG_Benchmark_Jobs_GCC_MCQ.xlsx      Same questions in MCQ form
-│   └── RAG_MCQ_Jobs_GCC_FromSource.xlsx     Factual MCQs from raw job data
+├── 📄 RAG_Benchmark_Jobs_GCC.xlsx          MCQ benchmark: ~4,000 open-ended QAs (from mentor)
+├── 📄 RAG_Benchmark_Jobs_GCC_MCQ.xlsx      Same questions in MCQ form
+├── 📄 RAG_MCQ_Jobs_GCC_FromSource.xlsx     Factual MCQs generated from raw job data
 │
 ├── mcq_results.json           Latest benchmark run (raw per-question results)
 ├── mcq_results.xlsx           Benchmark results — Summary + Per-Question sheets
