@@ -1,0 +1,12 @@
+{
+  "filters": {
+    "_country": "Qatar",
+    "job_title": "IT"
+  },
+  "semantic_query": "عدد الوظائف المتاحة في مجال تكنولوجيا المعلومات",
+  "needs_aggregation": true,
+  "analysis_types": [
+    "sectors"
+  ],
+  "resolved_question": "ما هو العدد الإجمالي لوظائف تكنولوجيا المعلومات المتوفرة حاليًا في دولة قطر."
+}
