@@ -1,0 +1,32 @@
+# Never bake secrets into the image
+.env
+.streamlit/
+
+# Python cruft
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local index dir — Qdrant Cloud holds the vectors; only the manifest matters
+chroma_db/*
+!chroma_db/_manifest.json
+
+# Dev/eval artifacts not needed at runtime
+tests/
+data_excluded/
+*.log
+tmp_*.py
+comparison.json
+results.json
+eval_results_*.json
+mcq_results.*
+mcq_run.log
+mcq_summary.txt
+dashboard-*.html
+dashboard_*.html
+*.xlsx
+!data/*.xlsx
+
+# Excel lock files
+~$*
