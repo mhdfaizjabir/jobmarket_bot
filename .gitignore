@@ -42,3 +42,8 @@ frontend/.env.local
 .DS_Store
 Thumbs.db
 *.log
+
+# ── Local tool config / reference material ───────────────────────────────────
+.claude/
+papers/*.pdf
+papers/*.html
