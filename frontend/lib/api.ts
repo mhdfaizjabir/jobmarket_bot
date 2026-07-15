@@ -1,6 +1,10 @@
-import { DashboardData, DatasetsResponse, RetrievalInfo } from './types';
+import { DashboardData, DatasetsResponse, HealthResponse, RetrievalInfo } from './types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// `??` (not `||`) so an explicitly-empty NEXT_PUBLIC_API_URL means "same origin"
+// — the production nginx setup serves the API under the same host at /api/*,
+// so the Docker build passes NEXT_PUBLIC_API_URL="" to get relative URLs.
+// Unset (local dev without Docker) still falls back to the local backend.
+export const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export async function fetchDatasets(): Promise<DatasetsResponse> {
   const r = await fetch(`${API}/api/datasets`);
@@ -8,22 +12,47 @@ export async function fetchDatasets(): Promise<DatasetsResponse> {
   return r.json();
 }
 
+// One field per RAG/filter_registry.py entry, mirrored in server.py's
+// get_dashboard() query params — plus country/timeline, which stay on the
+// dump_ids selection mechanism rather than the explicit_filters registry.
 export interface DashboardParams {
   dumps: string[];
   country?: string;
-  sector?: string;
   timeline?: string;
+  sector?: string;
+  employment_type?: string;
+  career_level?: string;
+  company?: string;
+  experience?: string;
+  salary_bucket?: string;
+}
+
+function dashboardQuery(params: DashboardParams): URLSearchParams {
+  const q = new URLSearchParams();
+  if (params.dumps.length) q.set('dumps', params.dumps.join(','));
+  const named: (keyof DashboardParams)[] = [
+    'country', 'timeline', 'sector', 'employment_type', 'career_level', 'company', 'experience', 'salary_bucket',
+  ];
+  for (const key of named) {
+    const value = params[key];
+    if (typeof value === 'string' && value && value !== 'All') q.set(key, value);
+  }
+  return q;
 }
 
 export async function fetchDashboard(params: DashboardParams): Promise<DashboardData> {
-  const q = new URLSearchParams();
-  if (params.dumps.length) q.set('dumps', params.dumps.join(','));
-  if (params.country  && params.country  !== 'All') q.set('country',  params.country);
-  if (params.sector   && params.sector   !== 'All') q.set('sector',   params.sector);
-  if (params.timeline && params.timeline !== 'All') q.set('timeline', params.timeline);
-  const r = await fetch(`${API}/api/dashboard?${q}`);
+  const r = await fetch(`${API}/api/dashboard?${dashboardQuery(params)}`);
   if (!r.ok) throw new Error('Failed to fetch dashboard data');
   return r.json();
+}
+
+// Backs each chart's download-as-Excel button. A plain navigable URL (not a
+// fetch+blob) so the browser handles the Content-Disposition: attachment
+// response as a normal download, no CORS/blob plumbing needed.
+export function dashboardExportUrl(chart: string, params: DashboardParams): string {
+  const q = dashboardQuery(params);
+  q.set('chart', chart);
+  return `${API}/api/dashboard/export?${q}`;
 }
 
 export interface ModelOption {
@@ -34,6 +63,12 @@ export interface ModelOption {
 export async function fetchModels(): Promise<{ models: ModelOption[]; default: string }> {
   const r = await fetch(`${API}/api/models`);
   if (!r.ok) throw new Error('Failed to fetch models');
+  return r.json();
+}
+
+export async function fetchHealth(): Promise<HealthResponse> {
+  const r = await fetch(`${API}/health`);
+  if (!r.ok) throw new Error('Failed to fetch health');
   return r.json();
 }
 
@@ -59,11 +94,12 @@ export async function* streamChat(
   model: string,
   dumpIds: string[],
   signal?: AbortSignal,
+  filters?: Record<string, string>,
 ): AsyncGenerator<StreamEvent> {
   const r = await fetch(`${API}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, session_id: sessionId, model, dump_ids: dumpIds }),
+    body: JSON.stringify({ question, session_id: sessionId, model, dump_ids: dumpIds, filters: filters ?? {} }),
     signal,
   });
 

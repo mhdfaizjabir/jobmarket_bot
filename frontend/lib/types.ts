@@ -72,3 +72,17 @@ export interface Message {
   streaming?: boolean;
   retrieval?: RetrievalInfo;
 }
+
+export interface HealthResponse {
+  status: string;
+  environment: string;
+  version: string;
+  uptime_s: number;
+  postings: number;
+  vectors: number;
+  qdrant_status: string;
+  model_configured: string | null;
+  models_available: number;
+  sessions: { active_sessions: number };
+  memory_mb: number | null;
+}

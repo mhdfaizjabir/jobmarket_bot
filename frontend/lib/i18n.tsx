@@ -12,6 +12,9 @@ const dictionaries: Record<Lang, Record<string, any>> = {
       services: 'Services',
       faq: 'FAQ',
       getStarted: 'Get Started',
+      about: 'About',
+      research: 'Research',
+      docs: 'Docs',
     },
     hero: {
       badge: 'AI-Powered Labor Market Intelligence',
@@ -69,6 +72,10 @@ const dictionaries: Record<Lang, Record<string, any>> = {
       dashboard: 'Dashboard',
       chat: 'Chat',
       home: 'Home',
+      settings: 'Settings',
+      admin: 'Admin',
+      share: 'Share this view',
+      linkCopied: 'Link copied!',
     },
   },
   ar: {
@@ -78,6 +85,9 @@ const dictionaries: Record<Lang, Record<string, any>> = {
       services: 'الخدمات',
       faq: 'الأسئلة الشائعة',
       getStarted: 'ابدأ الآن',
+      about: 'عن المشروع',
+      research: 'البحث',
+      docs: 'الوثائق',
     },
     hero: {
       badge: 'تحليلات سوق العمل بالذكاء الاصطناعي',
@@ -135,6 +145,10 @@ const dictionaries: Record<Lang, Record<string, any>> = {
       dashboard: 'لوحة التحكم',
       chat: 'المحادثة',
       home: 'الرئيسية',
+      settings: 'الإعدادات',
+      admin: 'الإدارة',
+      share: 'مشاركة هذا العرض',
+      linkCopied: 'تم نسخ الرابط!',
     },
   },
 };

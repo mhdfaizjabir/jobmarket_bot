@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# This is a public research showcase — crawling of the landing page is welcome.
+# The API lives on a separate origin and is not linked here.

@@ -2,11 +2,7 @@
 
 import { DumpInfo } from '@/lib/types';
 import { ModelOption } from '@/lib/api';
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  Qatar: '🇶🇦', UAE: '🇦🇪', 'Saudi Arabia': '🇸🇦',
-  Bahrain: '🇧🇭', Kuwait: '🇰🇼', Oman: '🇴🇲',
-};
+import { COUNTRY_FLAGS } from '@/lib/site';
 
 const SOURCE_ICONS: Record<string, string> = {
   Bayt: '📌',
@@ -52,10 +48,11 @@ export default function Sidebar({
         style={{ width: 44, background: 'var(--bg-alt)', borderColor: 'var(--border)', flexShrink: 0 }}>
         <button
           onClick={onCollapse}
+          aria-label="Open sidebar"
           title="Open sidebar"
           className="text-lg hover:text-purple-400 transition"
           style={{ color: 'var(--muted)' }}>
-          ☰
+          <span aria-hidden="true">☰</span>
         </button>
         <div className="text-xs font-semibold mt-2" style={{ color: 'var(--accent)', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
           {selected.length} datasets
@@ -77,10 +74,11 @@ export default function Sidebar({
         </div>
         <button
           onClick={onCollapse}
+          aria-label="Collapse sidebar"
           title="Collapse sidebar"
           className="text-lg mt-0.5 hover:text-purple-400 transition"
           style={{ color: 'var(--muted)' }}>
-          ✕
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 

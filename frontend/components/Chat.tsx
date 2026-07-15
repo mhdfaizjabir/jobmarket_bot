@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { createSession, clearSession, streamChat } from '@/lib/api';
 import { Message, RetrievalInfo } from '@/lib/types';
+import { filterLabel } from '@/lib/filters';
 
 function friendlyError(err: unknown): string {
   if (!(err instanceof Error)) return 'Something went wrong. Please try again.';
@@ -168,9 +169,10 @@ interface MessageWithId extends Message {
 interface Props {
   selectedDumps: string[];
   model: string;
+  filters?: Record<string, string>;
 }
 
-export default function Chat({ selectedDumps, model }: Props) {
+export default function Chat({ selectedDumps, model, filters = {} }: Props) {
   const [sessionId,    setSessionId]    = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
   const [messages,     setMessages]     = useState<MessageWithId[]>([]);
@@ -234,7 +236,7 @@ export default function Chat({ selectedDumps, model }: Props) {
     abortRef.current = controller;
 
     try {
-      for await (const event of streamChat(question, sessionId, model, selectedDumps, controller.signal)) {
+      for await (const event of streamChat(question, sessionId, model, selectedDumps, controller.signal, filters)) {
         if (event.type === 'retrieval') {
           setSearching(false);
           setMessages(prev => {
@@ -306,7 +308,10 @@ export default function Chat({ selectedDumps, model }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
         <span className="text-xs" style={{ color: 'var(--muted)' }}>
-          {selectedDumps.length ? `${selectedDumps.length} datasets selected` : 'All data'} ·
+          {selectedDumps.length ? `${selectedDumps.length} datasets selected` : 'All data'}
+          {Object.entries(filters).map(([k, v]) => (
+            <span key={k}> · {filterLabel(k)}: <span className="text-purple-400">{v}</span></span>
+          ))} ·
           model: <code className="text-purple-400 ml-1">{model.split('/').pop()}</code>
           {!sessionId && <span className="ml-2 text-yellow-400">connecting…</span>}
         </span>
@@ -388,9 +393,10 @@ export default function Chat({ selectedDumps, model }: Props) {
             </button>
           ) : (
             <button type="submit" disabled={!input.trim() || !sessionId}
+              aria-label="Send message"
               className="px-5 py-3 rounded-xl font-semibold text-sm transition disabled:opacity-40"
               style={{ background: 'var(--accent)', color: 'white' }}>
-              ➤
+              <span aria-hidden="true">➤</span>
             </button>
           )}
         </form>

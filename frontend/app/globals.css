@@ -48,19 +48,3 @@ body {
   border-radius: 10px;
   padding: 16px;
 }
-
-/* Markdown-like chat formatting */
-.prose-dark p  { margin: 0.4em 0; }
-.prose-dark h3 { font-size: 1rem; font-weight: 700; margin: 0.8em 0 0.3em; }
-.prose-dark ul { padding-left: 1.4em; }
-.prose-dark li { margin: 0.25em 0; }
-.prose-dark strong { color: var(--text); }
-.prose-dark code {
-  background: var(--code-bg);
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-size: 0.85em;
-  font-family: monospace;
-}
-
-[dir="rtl"] .prose-dark ul { padding-left: 0; padding-right: 1.4em; }

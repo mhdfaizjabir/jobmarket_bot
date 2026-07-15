@@ -65,6 +65,8 @@ export default function LandingPage() {
             <a href="#features" className="hover:opacity-80 transition">{t('nav.features')}</a>
             <a href="#pipeline" className="hover:opacity-80 transition">{t('nav.services')}</a>
             <a href="#faq" className="hover:opacity-80 transition">{t('nav.faq')}</a>
+            <Link href="/research" className="hover:opacity-80 transition">{t('nav.research')}</Link>
+            <Link href="/about" className="hover:opacity-80 transition">{t('nav.about')}</Link>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -200,15 +202,24 @@ export default function LandingPage() {
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="border-t" style={{ borderColor: 'var(--border)' }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 font-bold">
-            <span>🌍</span>
-            <span>{t('nav.brand')}</span>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 font-bold">
+              <span>🌍</span>
+              <span>{t('nav.brand')}</span>
+            </div>
+            <p className="text-xs sm:text-sm text-center" style={{ color: 'var(--muted)' }}>{t('footer.tagline')}</p>
           </div>
-          <p className="text-xs sm:text-sm text-center" style={{ color: 'var(--muted)' }}>{t('footer.tagline')}</p>
-          <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>
-            © {new Date().getFullYear()} · {t('footer.rights')}
-          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+            <nav className="flex items-center gap-4 text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>
+              <Link href="/about" className="hover:opacity-80 transition">{t('nav.about')}</Link>
+              <Link href="/research" className="hover:opacity-80 transition">{t('nav.research')}</Link>
+              <Link href="/docs" className="hover:opacity-80 transition">{t('nav.docs')}</Link>
+            </nav>
+            <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>
+              © {new Date().getFullYear()} · {t('footer.rights')}
+            </p>
+          </div>
         </div>
       </footer>
     </div>
