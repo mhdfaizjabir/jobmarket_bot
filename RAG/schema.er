@@ -1,0 +1,61 @@
+[dump]
+    *dump_id {label:"VARCHAR: e.g. qatar_may_2026"}
+    source {label:"VARCHAR: Bayt/LinkedIn"}
+    country {label:"VARCHAR: Qatar/UAE/Saudi Arabia"}
+    timeline {label:"VARCHAR: e.g. May 2026"}
+    count {label:"INTEGER: postings in this dump"}
+
+[job_posting]
+    *job_id {label:"VARCHAR: source_file::job_id"}
+    dump_id {label:"VARCHAR"}
+    job_title {label:"VARCHAR"}
+    company {label:"VARCHAR"}
+    category {label:"VARCHAR: raw sector"}
+    sector_norm {label:"VARCHAR: derived, filter_registry"}
+    location {label:"VARCHAR"}
+    career_level {label:"VARCHAR"}
+    career_level_norm {label:"VARCHAR: derived"}
+    employment_type {label:"VARCHAR"}
+    employment_type_norm {label:"VARCHAR: derived"}
+    experience {label:"VARCHAR"}
+    education {label:"VARCHAR"}
+    salary {label:"VARCHAR: free text"}
+    salary_bucket_norm {label:"VARCHAR: derived bracket"}
+    skills {label:"TEXT: delimited list"}
+    qualifications {label:"TEXT"}
+    language {label:"VARCHAR"}
+    gender {label:"VARCHAR"}
+    post_date {label:"DATE"}
+    url {label:"VARCHAR"}
+    description {label:"TEXT"}
+    ar_content {label:"TEXT: merged Arabic source"}
+
+[qdrant_point]
+    *point_id {label:"VARCHAR: uuid5(source_file::job_id)"}
+    job_id {label:"VARCHAR"}
+    vector_dim {label:"INTEGER: 384"}
+    doc_text {label:"TEXT: embedded document"}
+    distance_metric {label:"VARCHAR: cosine"}
+
+[filter_registry_entry]
+    *key {label:"VARCHAR: wire name, e.g. sector"}
+    column {label:"VARCHAR: df/SQL/Qdrant field"}
+    label {label:"VARCHAR: prompt scope text"}
+    has_normalizer {label:"BOOLEAN"}
+
+[chat_session]
+    *session_id {label:"VARCHAR: uuid4"}
+    created_at {label:"DATETIME"}
+    last_active {label:"DATETIME"}
+    model {label:"VARCHAR: e.g. fanar/Fanar-C-2-27B"}
+
+[chat_message]
+    *message_id {label:"INTEGER: position in session"}
+    session_id {label:"VARCHAR"}
+    role {label:"VARCHAR: user/assistant"}
+    content {label:"TEXT"}
+    timestamp {label:"DATETIME"}
+
+dump."dump_id" 1--* job_posting."dump_id"
+job_posting."job_id" 1--? qdrant_point."job_id"
+chat_session."session_id" 1--* chat_message."session_id"

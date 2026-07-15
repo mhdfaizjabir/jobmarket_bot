@@ -14,6 +14,7 @@ MANIFEST_VERSION: bump ONLY when document text format changes — forces full re
 import hashlib
 import json
 import os
+import time
 import uuid
 import warnings
 from pathlib import Path
@@ -24,9 +25,13 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-from config import CHROMA_DIR, DESCRIPTION_TRUNCATE, EMBEDDING_MODEL, TOP_K
+from config import CHROMA_DIR, DESCRIPTION_TRUNCATE, EMBEDDING_MODEL, TOP_K, get_logger
+from filter_registry import EXPLICIT_FILTER_COLUMNS
+from observability import record_metric
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 QDRANT_COLLECTION = "gulf_jobs"
 MANIFEST_PATH     = CHROMA_DIR / "_manifest.json"
@@ -117,6 +122,29 @@ class _QdrantREST:
         r.raise_for_status()
         return r.json()["result"]
 
+    def scroll(
+        self,
+        name: str,
+        limit: int = 500,
+        offset: str | None = None,
+        with_payload: bool = True,
+    ) -> dict:
+        """Paginate through all points in a collection (no vector similarity involved)."""
+        body: dict = {"limit": limit, "with_payload": with_payload, "with_vector": False}
+        if offset is not None:
+            body["offset"] = offset
+        r = self._s.post(f"{self._base}/collections/{name}/points/scroll", json=body)
+        r.raise_for_status()
+        return r.json()["result"]
+
+    def set_payload(self, name: str, payload: dict, point_ids: list[str], wait: bool = True):
+        """Merge `payload` into the existing payload of the given point ids (no re-embedding)."""
+        body = {"payload": payload, "points": point_ids}
+        params = {"wait": str(wait).lower()}
+        r = self._s.post(f"{self._base}/collections/{name}/points/payload", json=body, params=params)
+        r.raise_for_status()
+        return r.json()["result"]
+
 
 # ---------------------------------------------------------------------------
 # Manifest helpers
@@ -167,12 +195,16 @@ _DOC_FIELDS: list[tuple[str, str]] = [
     ("gender",          "Gender"),
 ]
 
-_META_COLS = [
+_BASE_META_COLS = [
     "job_title", "company", "category", "location",
     "career_level", "employment_type", "education",
     "salary", "_timeline", "_source_file", "_country",
     "_source", "_dump_id",
 ]
+
+# Every registered explicit filter (sector today, more later) is captured into
+# the payload automatically — no change needed here when a new one is added.
+_META_COLS = list(dict.fromkeys(_BASE_META_COLS + sorted(EXPLICIT_FILTER_COLUMNS)))
 
 
 def _build_doc_text(row: pd.Series) -> str:
@@ -265,6 +297,10 @@ class VectorStore:
 
         self._client = _QdrantREST(url, api_key)
         self._model  = SentenceTransformer(EMBEDDING_MODEL)
+        # First real .encode() call after load pays a one-time CPU thread-pool
+        # / kernel warmup tax (observed ~15-20s on Windows) — pay it here, once,
+        # at boot rather than on a random user's first chat message.
+        self._model.encode("warm up", show_progress_bar=False)
         self._ensure_collection()
         self._count: int | None = None
 
@@ -278,7 +314,7 @@ class VectorStore:
     def _ensure_payload_indexes(self):
         info = self._client.get_collection_info(QDRANT_COLLECTION)
         payload_schema = info.get("payload_schema", {}) or {}
-        for field in ("_country", "_timeline", "career_level", "_dump_id", "_source"):
+        for field in {"_country", "_timeline", "career_level", "_dump_id", "_source"} | EXPLICIT_FILTER_COLUMNS:
             if field in payload_schema:
                 continue
             try:
@@ -288,9 +324,9 @@ class VectorStore:
                     field_type="keyword",
                     wait=True,
                 )
-                print(f"[VectorStore] Created payload index for {field}")
-            except Exception as e:
-                print(f"[VectorStore] Could not create payload index for {field}: {e}")
+                logger.info("Created Qdrant payload index for %s", field)
+            except Exception:
+                logger.exception("Could not create Qdrant payload index for %s", field)
 
     # ── Status helpers ───────────────────────────────────────────────────────
 
@@ -300,8 +336,8 @@ class VectorStore:
         try:
             self._count = self._client.count(QDRANT_COLLECTION)
             return self._count
-        except Exception as e:
-            print(f"[VectorStore] Qdrant count() failed: {e}")
+        except Exception:
+            logger.exception("Qdrant count() failed")
             return 0
 
     def has_vectors(self) -> bool:
@@ -362,7 +398,7 @@ class VectorStore:
             else df
         )
 
-        print(f"Incremental index: embedding {len(new_rows):,} rows from {len(changed)} file(s)...")
+        logger.info("Incremental index: embedding %s rows from %s file(s)...", f"{len(new_rows):,}", len(changed))
         self._upsert_rows(new_rows, progress_callback)
         self._count = self._client.count(QDRANT_COLLECTION)
 
@@ -412,15 +448,20 @@ class VectorStore:
         if not self.has_vectors():
             return []
 
+        t0 = time.perf_counter()
         query_vector  = self._model.encode(query).tolist()
+        record_metric("embedding_duration_ms", (time.perf_counter() - t0) * 1000)
+
         qdrant_filter = _chroma_where_to_qdrant(where)
 
+        t1 = time.perf_counter()
         results = self._client.search(
             QDRANT_COLLECTION,
             vector=query_vector,
             limit=n_results,
             filter_dict=qdrant_filter,
         )
+        record_metric("qdrant_search_duration_ms", (time.perf_counter() - t1) * 1000)
 
         return [
             {

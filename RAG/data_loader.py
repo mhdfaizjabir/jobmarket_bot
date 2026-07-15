@@ -103,6 +103,45 @@ def norm_career(val) -> str | None:
     return str(val).strip()   # keep original if unrecognised
 
 
+SALARY_BUCKET_BINS: list[float] = [0, 500, 1000, 1500, 2000, 3000, 5000, 7500, 10000, 15000, float("inf")]
+SALARY_BUCKET_LABELS: list[str] = [
+    "<$500", "$500-1K", "$1K-1.5K", "$1.5K-2K", "$2K-3K",
+    "$3K-5K", "$5K-7.5K", "$7.5K-10K", "$10K-15K", "$15K+",
+]
+
+
+def parse_salary_mid(val) -> float | None:
+    """Parse a free-text salary range string into a monthly USD midpoint."""
+    if not val or str(val).strip() == "":
+        return None
+    s = str(val)
+    nums = re.findall(r"[\d,]+", s)
+    if len(nums) < 2:
+        return None
+    try:
+        lo, hi = float(nums[0].replace(",", "")), float(nums[1].replace(",", ""))
+    except ValueError:
+        return None
+    if lo < 1 or hi < 1:
+        return None
+    if "year" in s.lower() or "annual" in s.lower():
+        lo, hi = lo / 12, hi / 12
+    if any(x in s.upper() for x in ["SAR", " SR", "SR "]):
+        lo, hi = lo / 3.75, hi / 3.75
+    return (lo + hi) / 2
+
+
+def norm_salary_bucket(val) -> str | None:
+    """Bucket a salary string into the same bracket labels shown on the dashboard chart."""
+    mid = parse_salary_mid(val)
+    if mid is None:
+        return None
+    for lo, hi, label in zip(SALARY_BUCKET_BINS, SALARY_BUCKET_BINS[1:], SALARY_BUCKET_LABELS):
+        if lo <= mid < hi:
+            return label
+    return None
+
+
 def norm_sector(val) -> str | None:
     """Consolidate duplicate sector names (e.g. Oil and Gas / Oil & Gas)."""
     if pd.isna(val) or not str(val).strip():
@@ -386,6 +425,11 @@ def load_all(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, list[str]]:
             df["_sector_norm"] = df["category"].apply(norm_sector)
         else:
             df["_sector_norm"] = None
+
+        if "salary" in df.columns:
+            df["_salary_bucket_norm"] = df["salary"].apply(norm_salary_bucket)
+        else:
+            df["_salary_bucket_norm"] = None
 
         # Try to merge AR bilingual signals
         ar_path = ar_lookup.get(info["dump_id"])

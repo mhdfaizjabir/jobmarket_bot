@@ -15,6 +15,19 @@ HyST-inspired hybrid pipeline (Hybrid retrieval over Semi-Structured Tabular dat
   4. ChromaDB search  — semantic similarity within structurally-filtered candidates
 
   5. LLM synthesises a streaming answer from all three layers.
+
+TODO(structure, sprint 5+): this file has grown to ~1550 lines and mixes
+several concerns that could split cleanly once there's a reason to touch
+them independently (not done now — "only extract if safe", and nothing here
+is broken):
+  - prompts/decompose.py   <- _build_decompose_system() + the chitchat/
+                              follow-up regex constants (pure prompt text,
+                              no engine state)
+  - retrievers/sql.py       <- the SQL-invocation half of _prepare()
+  - retrievers/semantic.py  <- the Qdrant search + post-filter block inside
+                              _build_full_context()
+  - services/rag_engine.py <- the RAGEngine class itself, once the above
+                              are extracted, becomes the orchestration layer
 """
 
 import difflib
@@ -26,11 +39,16 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from analytics import AnalyticsEngine
+from filter_registry import EXPLICIT_FILTER_COLUMNS, field_for_column, translate_explicit_filters
+from observability import trace_llm_call
+from retrieval import ENABLE_HYBRID_RETRIEVAL, bm25_results, fuse_results, rerank_results
 from sql_engine import SQLEngine
 from vector_store import VectorStore, _build_doc_text, _build_metadata
-from config import CHAT_MODEL, INTERNAL_MODEL, build_system_prompt, make_client
+from config import CHAT_MODEL, INTERNAL_MODEL, build_system_prompt, get_logger, make_client
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 _MAX_SEMANTIC_DOCS = 12
 _MAX_HISTORY_TURNS = 6
@@ -39,8 +57,10 @@ _MAX_HISTORY_TURNS = 6
 # make_client is imported from config — routes fanar/ prefix to Fanar API
 
 # Fields where ChromaDB supports exact-match metadata filtering.
-# Use only the core scope filters from the dataset for exact retrieval context.
-_CHROMA_EXACT_FIELDS = {"career_level", "_timeline", "_country"}
+# _country/_timeline/career_level are the decomposer's own soft-filter fields;
+# EXPLICIT_FILTER_COLUMNS (sector today, more later) comes from filter_registry
+# so adding a new UI-driven filter needs no change here.
+_CHROMA_EXACT_FIELDS = {"career_level", "_timeline", "_country"} | EXPLICIT_FILTER_COLUMNS
 
 # Country aliases recognised in natural language → canonical _country value in the data.
 # The actual set of supported countries is built from the loaded dataset so new GCC
@@ -166,6 +186,17 @@ You decompose questions about GCC (Gulf) job market data for a hybrid retrieval 
 You will receive recent conversation history — use it to resolve pronouns and references
 (e.g. "they", "those companies", "that role", "same sector") before decomposing.
 
+LANGUAGE: questions may be asked in English OR Arabic — apply every rule below identically
+regardless of the question's language. The underlying data (job titles, sectors, career
+levels) is stored in English regardless of which language the question was asked in, so
+filter VALUES must always be the English values listed below even when the question is
+Arabic — translate/map the Arabic term to its English equivalent, never leave it in Arabic
+or drop it. Example: "وظائف تكنولوجيا المعلومات في قطر" (information-technology jobs in
+Qatar) → filters: {{"_country": "Qatar", "job_title": "IT"}}, needs_aggregation: true,
+analysis_types: ["sectors"] — the Arabic domain term تكنولوجيا المعلومات must resolve to
+the same IT/Software signal "software developer" or "programming" would in English, not be
+ignored just because it wasn't in Latin script.
+
 AVAILABLE DATA:
   Countries in database : {co_str}
   Timelines in database : {tl_str}
@@ -178,12 +209,25 @@ Available structured filter fields:
                     Use only when user specifies a time period.
   career_level    — one of: {cl_str}
                     Use for career experience levels like "Entry-Level".
-  job_title       — specific role the user is asking about (free text, CONTAINS match).
-                    Use when the question is about a particular job title or role.
-                    Examples: "software developer" → job_title: "software developer"
+  job_title       — specific role OR domain the user is asking about (free text, CONTAINS
+                    match against real job titles in the data — matches substrings, so a
+                    broad domain word like "IT" or "nursing" works exactly like a specific
+                    title). Use for both "a particular job title" AND "jobs in field X"
+                    questions — the second kind is just as valid a job_title filter as the
+                    first, always populate it, never leave filters empty for a domain
+                    question just because no single exact title was named.
+                    Examples (English): "software developer" → job_title: "software developer"
                               "data analyst salary" → job_title: "data analyst"
                               "civil engineer jobs" → job_title: "civil engineer"
                               "nurse" → job_title: "nurse"
+                              "how many IT jobs" → job_title: "IT"
+                    Examples (Arabic — SAME rule, translate the Arabic term to its English
+                    job_title value, this is not optional):
+                              "كم عدد وظائف تكنولوجيا المعلومات" (how many IT jobs)
+                                → job_title: "IT"
+                              "وظائف تمريض" (nursing jobs) → job_title: "nurse"
+                              "مهندس برمجيات" (software engineer) → job_title: "software engineer"
+                              "محاسب" (accountant) → job_title: "accountant"
 
 Only these structured fields should be used for precise retrieval context.
 Other details should remain in semantic_query or resolved_question.
@@ -231,17 +275,27 @@ Rules:
                              → resolved: "jobs in Saudi"
                       RIGHT: → resolved: "Data Scientist and AI/ML roles available in Saudi Arabia"
 
-TECHNOLOGY/DOMAIN MAPPING — when user asks about a tech field, map it to real data:
-  "AI" / "artificial intelligence" → skills: machine learning, deep learning, NLP, python, data science
-                                     sectors: IT/Software, Engineering, R&D
-  "data science" / "data"          → skills: python, sql, machine learning, analytics, tableau
-  "cybersecurity" / "security"     → skills: cybersecurity, network security, ethical hacking
-  "cloud"                          → skills: AWS, Azure, cloud computing, DevOps
-  "software" / "programming"       → skills: python, javascript, java, software development
-  "finance" / "banking"            → sector: Banking/Finance, Accounting
-  "healthcare" / "medical"         → sector: Healthcare/Medical/Nursing
+TECHNOLOGY/DOMAIN MAPPING — when user asks about a tech field, map it to real data. Each
+row's Arabic term(s) mean exactly the same thing as its English term(s) — match on meaning,
+not script:
+  "AI" / "artificial intelligence" / "الذكاء الاصطناعي"
+                                     → skills: machine learning, deep learning, NLP, python, data science
+                                       sectors: IT/Software, Engineering, R&D
+  "data science" / "data" / "علم البيانات" / "البيانات"
+                                     → skills: python, sql, machine learning, analytics, tableau
+  "cybersecurity" / "security" / "الأمن السيبراني" / "أمن المعلومات"
+                                     → skills: cybersecurity, network security, ethical hacking
+  "cloud" / "الحوسبة السحابية"       → skills: AWS, Azure, cloud computing, DevOps
+  "software" / "programming" / "تكنولوجيا المعلومات" / "برمجة" / "تقنية المعلومات"
+                                     → skills: python, javascript, java, software development
+                                       sectors: IT/Software
+  "finance" / "banking" / "التمويل" / "المصرفية" / "البنوك"
+                                     → sector: Banking/Finance, Accounting
+  "healthcare" / "medical" / "الرعاية الصحية" / "الطب"
+                                     → sector: Healthcare/Medical/Nursing
   IMPORTANT: Bayt.com does NOT have an "AI" sector — AI jobs appear under IT/Software/Engineering.
-  When asked about a technology domain, set needs_aggregation=true and analysis_types=["skills","sectors"].
+  When asked about a technology domain (in either language), set needs_aggregation=true and
+  analysis_types=["skills","sectors"].
 """
 
 
@@ -296,7 +350,8 @@ def _apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     Narrow the DataFrame using only the core structured filters.
 
     We only use exact retrieval context from:
-      _country, _timeline, career_level
+      _country, _timeline, career_level, and any column registered in
+      filter_registry.py (EXPLICIT_FILTER_COLUMNS — sector today, more later)
     job_title is also used as a soft role filter because it helps match
     user role queries to the actual postings in the data.
 
@@ -320,6 +375,14 @@ def _apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
             narrowed = result[col.str.lower() == str(value).lower()]
             result = narrowed if len(narrowed) > 0 else result
         elif field in {"_country", "_timeline"}:
+            if field not in result.columns:
+                continue
+            col = result[field].astype(str)
+            narrowed = result[col.str.lower() == str(value).lower()]
+            result = narrowed if len(narrowed) > 0 else result
+        elif field in EXPLICIT_FILTER_COLUMNS:
+            # Generic exact-match for any registered explicit (UI-driven) filter —
+            # adding a new one in filter_registry.py needs no change here.
             if field not in result.columns:
                 continue
             col = result[field].astype(str)
@@ -379,6 +442,54 @@ def _to_chroma_where(filters: dict) -> dict | None:
         k, v = next(iter(exact.items()))
         return {k: v}
     return {"$and": [{k: v} for k, v in exact.items()]}
+
+
+def _merge_dump_filter(
+    chroma_where: dict | None, active_dump_ids: list[str] | None
+) -> tuple[dict | None, dict | None]:
+    """
+    Merge a hard `_dump_id` scope into a where clause. Returns
+    (combined_where, dump_only_where) — the latter lets a caller retry with
+    just the dump scope if the combined query fails server-side (e.g. an
+    unindexed field elsewhere in `chroma_where`), so the one constraint that
+    must never be dropped survives even when another filter can't be applied.
+    """
+    if not active_dump_ids:
+        return chroma_where, None
+    dump_filter = {"_dump_id": {"$in": active_dump_ids}}
+    combined = {"$and": [chroma_where, dump_filter]} if chroma_where else dump_filter
+    return combined, dump_filter
+
+
+def _dump_scoped(results: list[dict], active_dump_ids: list[str] | None) -> list[dict]:
+    """
+    Locally re-enforce `_dump_id` membership on semantic hits regardless of what
+    happened server-side. Qdrant's filtered search can fail over to an
+    unfiltered retry, which must never leak postings from a country/timeline/
+    dump the user didn't select — see PROJECT_SPEC.md Sprint 8 log.
+    """
+    if not active_dump_ids:
+        return results
+    allowed = set(active_dump_ids)
+    return [r for r in results if r["metadata"].get("_dump_id") in allowed]
+
+
+def _narrow_by_soft_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
+    """
+    Narrow an already dump-scoped DataFrame by the decomposer's _country/
+    _timeline inference and any active registered explicit filter — the same
+    scope chroma_where targets for vector/BM25 search. Shared by
+    _build_full_context (dataset-summary text + the BM25 candidate pool) and
+    get_retrieval_info (the transparency panel's own BM25 candidate pool).
+    """
+    if "_country" in filters and "_country" in df.columns:
+        df = df[df["_country"] == filters["_country"]]
+    if "_timeline" in filters and "_timeline" in df.columns:
+        df = df[df["_timeline"] == filters["_timeline"]]
+    for column in EXPLICIT_FILTER_COLUMNS:
+        if filters.get(column) and column in df.columns:
+            df = df[df[column].astype(str).str.lower() == str(filters[column]).lower()]
+    return df
 
 
 _CHITCHAT_RE = re.compile(
@@ -566,6 +677,20 @@ def _matches_filter_metadata(metadata: dict, filters: dict) -> bool:
             if actual and actual != expected:
                 return False
 
+    # Any registered explicit (UI-driven) filter — sector today, more later —
+    # gets the same exact-match safety net with no per-field code needed here.
+    for column in EXPLICIT_FILTER_COLUMNS:
+        if column not in filters:
+            continue
+        expected = str(filters[column]).strip().lower()
+        if not expected:
+            continue
+        field = field_for_column(column)
+        raw = metadata.get(column, "")
+        actual = str((field.normalize(raw) if field and field.normalize else raw) or "").strip().lower()
+        if actual and actual != expected:
+            return False
+
     return True
 
 
@@ -667,6 +792,7 @@ class RAGEngine:
                 max_tokens=400,
             )
             raw = resp.choices[0].message.content.strip()
+            logger.warning("TEMP_DEBUG decompose raw=%r msgs=%r", raw, messages)
             raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
             raw = re.sub(r"\s*```\s*$", "", raw)
             result = json.loads(raw)
@@ -886,6 +1012,7 @@ class RAGEngine:
         question: str,
         chat_history: list[dict] | None = None,
         dump_ids: list[str] | None = None,
+        explicit_filters: dict | None = None,
     ) -> dict:
         """
         Run question decomposition and (if needed) SQL generation exactly once.
@@ -894,13 +1021,18 @@ class RAGEngine:
         context-building inside answer()) — previously each of those called the
         decomposer independently (3x) and SQL generation independently (2x) for
         the same question, tripling/doubling LLM calls for no benefit.
+
+        explicit_filters : UI-driven filters (e.g. the dashboard's sector click)
+                            that must hold regardless of question wording — merged
+                            over the LLM-decomposed filters so they win on conflicts.
         """
         decomposed = self._normalize_decomposed(question, chat_history)
+        explicit = translate_explicit_filters(explicit_filters)
 
         if decomposed.get("_chitchat"):
             return {
                 "decomposed":     decomposed,
-                "filters":        {},
+                "filters":        dict(explicit),
                 "needs_agg":      False,
                 "analysis_types": [],
                 "resolved_q":     decomposed.get("resolved_question") or question,
@@ -909,7 +1041,7 @@ class RAGEngine:
                 "sql_ran":        False,
             }
 
-        filters        = decomposed.get("filters", {})
+        filters        = {**decomposed.get("filters", {}), **explicit}
         needs_agg      = decomposed.get("needs_aggregation", False)
         analysis_types = decomposed.get("analysis_types", [])
         resolved_q     = decomposed.get("resolved_question") or question
@@ -950,8 +1082,10 @@ class RAGEngine:
                 country = filters["_country"]
                 if country.lower() not in sql_question.lower():
                     sql_question = f"{sql_question} (country: {country})"
-            # Pass dump_ids so SQL operates on the same dump scope as the UI
-            sql_ctx = self.sql.get_context(sql_question, dump_ids=dump_ids)
+            # Pass dump_ids + every active registered explicit filter so SQL
+            # operates on the same scope as the UI, with no per-field wiring here.
+            active_explicit = {col: filters[col] for col in EXPLICIT_FILTER_COLUMNS if filters.get(col)}
+            sql_ctx = self.sql.get_context(sql_question, dump_ids=dump_ids, explicit_filters=active_explicit)
             if sql_ctx and "No matching records" not in sql_ctx:
                 if "salary" in analysis_types and "job_title" in filters:
                     numeric_values = re.findall(r"\$?\d{3,}(?:,\d{3})*", sql_ctx)
@@ -1022,11 +1156,7 @@ class RAGEngine:
 
         # Scope the DATASET SUMMARY to the question's country/timeline so the LLM
         # sees the correct count (e.g. 12,231 Qatar) instead of the global total (25,959).
-        summary_df = base_df
-        if "_country" in filters and "_country" in summary_df.columns:
-            summary_df = summary_df[summary_df["_country"] == filters["_country"]]
-        if "_timeline" in filters and "_timeline" in summary_df.columns:
-            summary_df = summary_df[summary_df["_timeline"] == filters["_timeline"]]
+        summary_df = _narrow_by_soft_filters(base_df, filters)
 
         summary_engine = AnalyticsEngine(summary_df)
         ov = summary_engine.overview()
@@ -1047,6 +1177,16 @@ class RAGEngine:
         if filters.get("career_level"):
             parts.append(
                 f"LEVEL NOTE: Focus on {filters['career_level']} roles only."
+            )
+        for column in EXPLICIT_FILTER_COLUMNS:
+            if not filters.get(column):
+                continue
+            field = field_for_column(column)
+            label = field.label if field else column
+            parts.append(
+                f"{label.upper()} SCOPE: The user has filtered the dashboard to \"{filters[column]}\" "
+                f"({label}) only. Answer only for that {label} — do not include postings outside it "
+                "unless the user explicitly asks to compare or broaden scope."
             )
 
         # Job-title grounding check — if the user asked about a specific role and
@@ -1138,25 +1278,40 @@ class RAGEngine:
             # user selected only LinkedIn Qatar, the chatbot only retrieves from
             # those postings, not the whole corpus.
             active_dump_ids = prepared.get("dump_ids") if prepared else dump_ids
-            if active_dump_ids:
-                dump_filter = {"_dump_id": {"$in": active_dump_ids}}
-                chroma_where = (
-                    {"$and": [chroma_where, dump_filter]}
-                    if chroma_where
-                    else dump_filter
-                )
+            chroma_where, dump_only_where = _merge_dump_filter(chroma_where, active_dump_ids)
 
             try:
-                results = self.vs.search(
-                    semantic_q,
-                    n_results=fetch_n,
-                    where=chroma_where,
+                results = self.vs.search(semantic_q, n_results=fetch_n, where=chroma_where)
+            except Exception:
+                logger.warning(
+                    "Vector search with combined filter failed — retrying with dump scope only",
+                    exc_info=True,
                 )
-            except Exception as _vec_err:
-                print(f"[RAG] Vector search with filter failed ({_vec_err}) — retrying without filter")
-                # Qdrant filters may fail if the payload field is not indexed.
-                # Fall back to an unfiltered semantic search and enforce scope locally.
-                results = self.vs.search(semantic_q, n_results=fetch_n)
+                try:
+                    results = self.vs.search(semantic_q, n_results=fetch_n, where=dump_only_where)
+                except Exception:
+                    logger.warning(
+                        "Vector search with dump-only filter failed — retrying fully unfiltered",
+                        exc_info=True,
+                    )
+                    results = self.vs.search(semantic_q, n_results=fetch_n)
+
+            # Defense-in-depth: whatever path above ran, never let a Qdrant-side
+            # filter failure leak postings from an unselected dump/country/timeline.
+            results = _dump_scoped(results, active_dump_ids)
+
+            # Hybrid retrieval: fuse the vector hits with BM25 keyword search over
+            # the same scoped candidate pool (summary_df — already narrowed by
+            # dump_ids + country/timeline/explicit filters above) via Reciprocal
+            # Rank Fusion, then rerank the fused pool with a small multilingual
+            # cross-encoder. Both stages degrade to a no-op on failure, so this
+            # can never make retrieval worse than vector-only, only skip the gain.
+            if ENABLE_HYBRID_RETRIEVAL:
+                bm25_pool = bm25_results(semantic_q, summary_df, top_k=fetch_n)
+                if bm25_pool:
+                    results = fuse_results([results, bm25_pool], top_k=fetch_n)
+                if results:
+                    results = rerank_results(semantic_q, results, top_k=fetch_n)
 
             if "job_title" in filters:
                 other_filters = {k: v for k, v in filters.items() if k != "job_title"}
@@ -1288,10 +1443,14 @@ class RAGEngine:
 
         context = self._build_full_context(question, chat_history, dump_ids=dump_ids, prepared=prepared)
 
-        # Build system prompt from the dump-scoped df so total_postings matches the UI
+        # Build system prompt from the dump/filter-scoped df so total_postings matches the UI
         df = self.analytics.df
         if dump_ids and "_dump_id" in df.columns:
             df = df[df["_dump_id"].isin(dump_ids)]
+        for column in EXPLICIT_FILTER_COLUMNS:
+            value = prepared["filters"].get(column)
+            if value and column in df.columns:
+                df = df[df[column].astype(str).str.lower() == str(value).lower()]
         countries = sorted(df["_country"].dropna().unique().tolist()) if "_country" in df.columns else []
         timelines = AnalyticsEngine(df).timelines
         system   = build_system_prompt(
@@ -1332,17 +1491,18 @@ class RAGEngine:
         })
 
         client, bare_model = make_client(use_model)
-        stream = client.chat.completions.create(
-            model=bare_model,
-            messages=messages,
-            temperature=0.2,
-            stream=True,
-        )
+        with trace_llm_call("rag_engine.answer", model=use_model):
+            stream = client.chat.completions.create(
+                model=bare_model,
+                messages=messages,
+                temperature=0.2,
+                stream=True,
+            )
 
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
 
     # ── Evaluation helpers ───────────────────────────────────────────────────
 
@@ -1458,12 +1618,44 @@ class RAGEngine:
         if self.vs.has_vectors():
             layers_used.append("Vector Search (semantic)")
             chroma_where = _to_chroma_where(filters)
+            # This transparency-panel search used to omit dump scoping entirely —
+            # it could show sources from a country/timeline the user never
+            # selected even though the actual SQL-backed answer was correctly
+            # scoped. Apply the same dump-id merge + local safety net as the
+            # answer-generation path (_build_full_context) uses.
+            active_dump_ids = prepared.get("dump_ids") if prepared else dump_ids
+            chroma_where, dump_only_where = _merge_dump_filter(chroma_where, active_dump_ids)
             try:
                 results = self.vs.search(semantic_q, n_results=12, where=chroma_where)
             except Exception:
-                # Qdrant filters may fail if the payload field is not indexed.
-                # Use the unfiltered search and rely on post-filtering for scope.
-                results = self.vs.search(semantic_q, n_results=12)
+                logger.warning(
+                    "Vector search with combined filter failed — retrying with dump scope only",
+                    exc_info=True,
+                )
+                try:
+                    results = self.vs.search(semantic_q, n_results=12, where=dump_only_where)
+                except Exception:
+                    logger.warning(
+                        "Vector search with dump-only filter failed — retrying fully unfiltered",
+                        exc_info=True,
+                    )
+                    results = self.vs.search(semantic_q, n_results=12)
+
+            results = _dump_scoped(results, active_dump_ids)
+
+            # Same hybrid retrieval as the answer-generation path, so the
+            # transparency panel reflects the ranking that actually informed
+            # the answer rather than a plain-vector-only ordering.
+            if ENABLE_HYBRID_RETRIEVAL:
+                bm25_df = df
+                if active_dump_ids and "_dump_id" in bm25_df.columns:
+                    bm25_df = bm25_df[bm25_df["_dump_id"].isin(active_dump_ids)]
+                bm25_df = _narrow_by_soft_filters(bm25_df, filters)
+                bm25_pool = bm25_results(semantic_q, bm25_df, top_k=12)
+                if bm25_pool:
+                    results = fuse_results([results, bm25_pool], top_k=12)
+                if results:
+                    results = rerank_results(semantic_q, results, top_k=12)
 
             results = _post_filter_semantic_results(results, filters)
 

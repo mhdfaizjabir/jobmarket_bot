@@ -1,11 +1,24 @@
+"""
+config/llm.py
+--------------
+Model/client configuration and system-prompt construction. Kept separate from
+settings.py so LLM provider changes (new model, new provider) never touch
+path/CORS/environment config and vice versa.
+
+TODO(sprint5+): build_system_prompt() and its prompt text are logically
+"prompt engineering" content — if a prompts/ module is introduced later
+(see ARCHITECTURE.md's structure notes), move this function there and keep
+only make_client()/model constants here.
+"""
+
 import os
-from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Lazy import to avoid circular imports — call make_client() at runtime
 _LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
+
 
 def make_client(model: str):
     """
@@ -18,13 +31,9 @@ def make_client(model: str):
     if model.startswith("fanar/"):
         bare = model[len("fanar/"):]
         key  = os.getenv("FANAR_API_KEY", "")
-        return OpenAI(api_key=key, base_url="https://api.fanar.qa/v1", timeout=_LLM_TIMEOUT), bare
+        return OpenAI(api_key=key, base_url=FANAR_BASE_URL, timeout=_LLM_TIMEOUT), bare
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""), timeout=_LLM_TIMEOUT), model
 
-BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "data"
-CHROMA_DIR = BASE_DIR / "chroma_db"
-CHROMA_COLLECTION = "gulf_jobs"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 FANAR_API_KEY  = os.getenv("FANAR_API_KEY",  "")
@@ -38,10 +47,6 @@ INTERNAL_MODEL = "fanar/Fanar-C-2-27B"
 # Multilingual model (EN + AR) so Arabic postings embed meaningfully.
 # Same 384-dim output as all-MiniLM-L6-v2, so Qdrant vector size is unchanged.
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
-
-# Retrieval
-TOP_K = 15
-DESCRIPTION_TRUNCATE = 400
 
 # Models shown in the UI selector — Fanar first, OpenAI as fallback
 # Prefix "fanar/" = use Fanar client; no prefix = use OpenAI client
@@ -57,55 +62,6 @@ AVAILABLE_MODELS: dict[str, str] = {
     "GPT-3.5 Turbo  (OpenAI · fastest)":      "gpt-3.5-turbo",
 }
 
-COUNTRY_FLAGS: dict[str, str] = {
-    "Qatar":        "🇶🇦",
-    "UAE":          "🇦🇪",
-    "Saudi Arabia": "🇸🇦",
-    "KSA":          "🇸🇦",
-    "Bahrain":      "🇧🇭",
-    "Kuwait":       "🇰🇼",
-    "Oman":         "🇴🇲",
-}
-
-COUNTRY_COLORS: dict[str, str] = {
-    "Qatar":        "#8B1538",
-    "UAE":          "#00732F",
-    "Saudi Arabia": "#FFB300",
-    "KSA":          "#FFB300",
-    "Bahrain":      "#CE1126",
-    "Kuwait":       "#007A3D",
-    "Oman":         "#DB161B",
-}
-
-# ---------------------------------------------------------------------------
-# Column aliases — maps canonical names → possible Excel/CSV header variants.
-# Add new aliases here if columns are renamed in future datasets.
-# Matching is case-insensitive; first match wins.
-# ---------------------------------------------------------------------------
-COLUMN_ALIASES: dict[str, list[str]] = {
-    "job_id":          ["Job_ID", "ID", "JobID", "job_id"],
-    "job_title":       ["Job_Title", "Title", "Position", "Job Title", "job_title"],
-    "company":         ["Company_Name", "Company", "Employer", "company_name"],
-    "category":        ["Job_Category", "Category", "Sector", "Industry", "job_category"],
-    "location":        ["Job_Location", "Location", "City", "job_location"],
-    "salary":          ["Salary_Range_USD", "Salary", "Salary Range", "Compensation",
-                        "salary_range_usd", "Salary_Range"],
-    "employment_type": ["Employment_Type", "Job Type", "Contract Type", "employment_type"],
-    "career_level":    ["Career_Level", "Level", "Seniority", "career_level"],
-    "experience":      ["Years_of_Experience", "Experience", "Years Experience",
-                        "years_of_experience", "Exp"],
-    "company_size":    ["Company_Size", "Size", "company_size"],
-    "description":     ["Job_Description", "Description", "Job Details", "job_description"],
-    "skills":          ["Job_Skills", "Skills", "Required Skills", "job_skills"],
-    "qualifications":  ["Required_Qualifications", "Qualifications", "Requirements",
-                        "required_qualifications"],
-    "gender":          ["Gender", "gender"],
-    "post_date":       ["Post_Date", "Date Posted", "Posted Date", "post_date"],
-    "education":       ["Education_Level", "Education", "Degree", "education_level"],
-    "language":        ["Language_Requirement", "Language", "Languages", "language_requirement"],
-    "url":             ["URL", "Link", "Job URL", "url"],
-    "original_content": ["Original_Page_Content", "Page Content", "Raw Content"],
-}
 
 def build_system_prompt(
     countries: list[str],
