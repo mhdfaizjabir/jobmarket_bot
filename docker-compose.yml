@@ -1,0 +1,31 @@
+# Development compose — backend + frontend, ports published directly,
+# frontend talks to the backend on localhost:8000 (no nginx).
+#
+#   1. cp RAG/.env.example RAG/.env   (fill in keys)
+#   2. docker compose up --build
+#   3. open http://localhost:3000
+#
+# Production stack (nginx, single origin, no direct ports): docker-compose.prod.yml
+
+services:
+  backend:
+    build: ./RAG
+    env_file: ./RAG/.env
+    environment:
+      ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked at build time — browser calls the backend directly in dev.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,55 @@
+# Production compose — nginx is the only published port; backend and frontend
+# are internal-only. The browser sees a single origin: / -> frontend,
+# /api/* + /health -> backend, /metrics blocked (scraped internally).
+#
+#   docker compose -f docker-compose.prod.yml up --build -d
+#
+# Required in RAG/.env for production:
+#   ENVIRONMENT=production        (enables fail-fast config validation)
+#   APP_VERSION=<release tag>
+#   ALLOWED_ORIGINS=<public origin, e.g. https://jobs.example.org>
+# TLS: terminate at the platform LB, or add a 443 server block + certs in
+# nginx/nginx.conf (see its TODO) and publish 443 below.
+
+services:
+  backend:
+    build: ./RAG
+    env_file: ./RAG/.env
+    expose:
+      - "8000"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Empty = same-origin relative URLs — everything flows through nginx.
+        NEXT_PUBLIC_API_URL: ""
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
